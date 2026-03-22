@@ -53,5 +53,5 @@ INSTALLATION
 
 KNOWN ISSUES
 
-Switching road tabs while the tool is active resets the roads menu to its default state. This is a UI behavior and does not affect gameplay or saved data.
+~~Switching road tabs while the tool is active resets the roads menu to its default state. This is a UI behavior and does not affect gameplay or saved data.~~ **Fixed!**
 
