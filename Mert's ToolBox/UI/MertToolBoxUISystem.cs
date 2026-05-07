@@ -23,7 +23,7 @@ namespace MertsToolBox
 
         private CircleToolSystem m_Circle;
         private HelixToolSystem m_Helix;
-        private SuperEllipseToolSystem m_SuperEllipse;
+        private SoftBlockToolSystem m_SoftBlock;
         private GridToolSystem m_Grid;
 
         private static readonly float[] s_DefaultElevationSteps = new float[] { 10f, 5f, 2.5f, 1.25f };
@@ -63,7 +63,7 @@ namespace MertsToolBox
 
             m_Circle = World.GetOrCreateSystemManaged<CircleToolSystem>();
             m_Helix = World.GetOrCreateSystemManaged<HelixToolSystem>();
-            m_SuperEllipse = World.GetOrCreateSystemManaged<SuperEllipseToolSystem>();
+            m_SoftBlock = World.GetOrCreateSystemManaged<SoftBlockToolSystem>();
             m_Grid = World.GetOrCreateSystemManaged<GridToolSystem>();
 
             if (m_ToolSystem != null)
@@ -124,8 +124,8 @@ namespace MertsToolBox
                 if (m_Helix != null && m_Helix.ToolEnabled)
                     return $"{m_Helix.ToolId}|{m_Helix.ToolName}";
 
-                if (m_SuperEllipse != null && m_SuperEllipse.ToolEnabled)
-                    return $"{m_SuperEllipse.ToolId}|{m_SuperEllipse.ToolName}";
+                if (m_SoftBlock != null && m_SoftBlock.ToolEnabled)
+                    return $"{m_SoftBlock.ToolId}|{m_SoftBlock.ToolName}";
 
                 if (m_Grid != null && m_Grid.ToolEnabled)
                     return $"{m_Grid.ToolId}|{m_Grid.ToolName}";
@@ -138,14 +138,14 @@ namespace MertsToolBox
                 bool prefabValid =
                     (m_Circle != null && m_Circle.IsCurrentPrefabValid()) ||
                     (m_Helix != null && m_Helix.IsCurrentPrefabValid()) ||
-                    (m_SuperEllipse != null && m_SuperEllipse.IsCurrentPrefabValid()) ||
+                    (m_SoftBlock != null && m_SoftBlock.IsCurrentPrefabValid()) ||
                     (m_Grid != null && m_Grid.IsCurrentPrefabValid());
 
                 bool toolContextValid = m_ToolSystem != null && (
                     m_ToolSystem.activeTool is NetToolSystem ||
                     (m_Circle != null && m_Circle.ToolEnabled) ||
                     (m_Helix != null && m_Helix.ToolEnabled) ||
-                    (m_SuperEllipse != null && m_SuperEllipse.ToolEnabled) ||
+                    (m_SoftBlock != null && m_SoftBlock.ToolEnabled) ||
                     (m_Grid != null && m_Grid.ToolEnabled)
                 );
 
@@ -198,29 +198,29 @@ namespace MertsToolBox
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "HelixIsClockwise",
                 () => m_Helix?.GetIsClockwise() ?? true));
 
-            // SuperEllipse Bindings
-            AddUpdateBinding(new MertPolledBinding<float>(ModId, "SuperEllipseWidth",
-                () => m_SuperEllipse?.GetCurrentWidth() ?? 96));
-            AddUpdateBinding(new MertPolledBinding<int>(ModId, "SuperEllipseWidthStepValue",
-                () => m_SuperEllipse?.GetWidthStepSize() ?? 8));
+            // SoftBlock Bindings
+            AddUpdateBinding(new MertPolledBinding<float>(ModId, "SoftBlockWidth",
+                () => m_SoftBlock?.GetCurrentWidth() ?? 96));
+            AddUpdateBinding(new MertPolledBinding<int>(ModId, "SoftBlockWidthStepValue",
+                () => m_SoftBlock?.GetWidthStepSize() ?? 8));
             AddBinding(new ValueBinding<int[]>(
                 ModId,
-                "SuperEllipseWidthStepArray",
-                m_SuperEllipse?.m_WidthSteps,
+                "SoftBlockWidthStepArray",
+                m_SoftBlock?.m_WidthSteps,
                 new ArrayWriter<int>()
             ));
-            AddUpdateBinding(new MertPolledBinding<float>(ModId, "SuperEllipseLength",
-                () => m_SuperEllipse?.GetCurrentLength() ?? 192));
-            AddUpdateBinding(new MertPolledBinding<int>(ModId, "SuperEllipseLengthStepValue",
-                () => m_SuperEllipse?.GetLengthStepSize() ?? 8));
+            AddUpdateBinding(new MertPolledBinding<float>(ModId, "SoftBlockLength",
+                () => m_SoftBlock?.GetCurrentLength() ?? 192));
+            AddUpdateBinding(new MertPolledBinding<int>(ModId, "SoftBlockLengthStepValue",
+                () => m_SoftBlock?.GetLengthStepSize() ?? 8));
             AddBinding(new ValueBinding<int[]>(
                 ModId,
-                "SuperEllipseLengthStepArray",
-                m_SuperEllipse?.m_LengthSteps,
+                "SoftBlockLengthStepArray",
+                m_SoftBlock?.m_LengthSteps,
                 new ArrayWriter<int>()
             ));
-            AddUpdateBinding(new MertPolledBinding<float>(ModId, "SuperEllipseN",
-                         () => m_SuperEllipse?.GetCurrentNSliderValue() ?? 8f));
+            AddUpdateBinding(new MertPolledBinding<float>(ModId, "GetBorderRadius",
+                         () => m_SoftBlock?.GetCurrentBorderRadius() ?? 5f));
 
             // Grid Bindings
             AddUpdateBinding(new MertPolledBinding<int>(ModId, "GridBlockWidth",
@@ -243,7 +243,7 @@ namespace MertsToolBox
             {
                 if (m_Circle != null && m_Circle.ToolEnabled) return m_Circle.GetElevationStepValue();
                 if (m_Helix != null && m_Helix.ToolEnabled) return m_Helix.GetElevationStepValue();
-                if (m_SuperEllipse != null && m_SuperEllipse.ToolEnabled) return m_SuperEllipse.GetElevationStepValue();
+                if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.GetElevationStepValue();
                 if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.GetElevationStepValue();
 
                 return 10f;
@@ -257,7 +257,7 @@ namespace MertsToolBox
             AddUpdateBinding(new MertPolledBinding<float>(ModId, "ElevationValue", () =>
             {
                 if (m_Circle != null && m_Circle.ToolEnabled) return m_Circle.GetCurrentNetToolElevation();
-                if (m_SuperEllipse != null && m_SuperEllipse.ToolEnabled) return m_SuperEllipse.GetCurrentNetToolElevation();
+                if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.GetCurrentNetToolElevation();
                 if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.GetCurrentNetToolElevation();
 
                 return 0f;
@@ -274,21 +274,21 @@ namespace MertsToolBox
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapGeometryActive", () =>
             {
                 if (m_Circle != null && m_Circle.ToolEnabled) return m_Circle.IsSnapGeometryEnabled();
-                if (m_SuperEllipse != null && m_SuperEllipse.ToolEnabled) return m_SuperEllipse.IsSnapGeometryEnabled();
+                if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.IsSnapGeometryEnabled();
                 if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.IsSnapGeometryEnabled();
                 return false;
             }));
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapNetSideActive", () =>
             {
                 if (m_Circle != null && m_Circle.ToolEnabled) return m_Circle.IsSnapNetSideEnabled();
-                if (m_SuperEllipse != null && m_SuperEllipse.ToolEnabled) return m_SuperEllipse.IsSnapNetSideEnabled();
+                if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.IsSnapNetSideEnabled();
                 if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.IsSnapNetSideEnabled();
                 return false;
             }));
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapNetAreaActive", () =>
             {
                 if (m_Circle != null && m_Circle.ToolEnabled) return m_Circle.IsSnapNetAreaEnabled();
-                if (m_SuperEllipse != null && m_SuperEllipse.ToolEnabled) return m_SuperEllipse.IsSnapNetAreaEnabled();
+                if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.IsSnapNetAreaEnabled();
                 if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.IsSnapNetAreaEnabled();
                 return false;
             }));
@@ -298,8 +298,8 @@ namespace MertsToolBox
                 () => Mod.settings != null && Mod.settings.UseCtrlWheelForCircleDiameterAdjustment));
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "ShowHelixCtrlWheelHint",
                 () => Mod.settings != null && Mod.settings.UseCtrlWheelForHelixTurnAdjustment));
-            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "ShowSuperEllipseCtrlWheelHint",
-                () => Mod.settings != null && Mod.settings.UseCtrlWheelForShapeAdjustment));
+            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "ShowSoftBlockCtrlWheelHint",
+                () => Mod.settings != null && Mod.settings.UseCtrlWheelForSoftBlockBorderRadius));
             AddUpdateBinding(new MertPolledBinding<string>(ModId, "ActionStatusText",
                 () => GetActionStatusText(), ""));
 
@@ -311,7 +311,7 @@ namespace MertsToolBox
 
                 if (toolId == m_Circle?.ToolId) m_Circle.SetToolState(true);
                 else if (toolId == m_Helix?.ToolId) m_Helix.SetToolState(true);
-                else if (toolId == m_SuperEllipse?.ToolId) m_SuperEllipse.SetToolState(true);
+                else if (toolId == m_SoftBlock?.ToolId) m_SoftBlock.SetToolState(true);
                 else if (toolId == m_Grid?.ToolId) m_Grid.SetToolState(true);
             }));
 
@@ -319,21 +319,21 @@ namespace MertsToolBox
             {
                 if (m_Circle != null && m_Circle.ToolEnabled) m_Circle.SetElevationStepFromUi(val);
                 else if (m_Helix != null && m_Helix.ToolEnabled) m_Helix.SetElevationStepFromUi(val);
-                else if (m_SuperEllipse != null && m_SuperEllipse.ToolEnabled) m_SuperEllipse.SetElevationStepFromUi(val);
+                else if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) m_SoftBlock.SetElevationStepFromUi(val);
                 else if (m_Grid != null && m_Grid.ToolEnabled) m_Grid.SetElevationStepFromUi(val);
             }));
 
             AddBinding(new TriggerBinding(ModId, "ElevationUp", () =>
             {
                 if (m_Circle != null && m_Circle.ToolEnabled) m_Circle.QueueElevationChangeFromUi(+1);
-                else if (m_SuperEllipse != null && m_SuperEllipse.ToolEnabled) m_SuperEllipse.QueueElevationChangeFromUi(+1);
+                else if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) m_SoftBlock.QueueElevationChangeFromUi(+1);
                 else if (m_Grid != null && m_Grid.ToolEnabled) m_Grid.QueueElevationChangeFromUi(+1);
             }));
 
             AddBinding(new TriggerBinding(ModId, "ElevationDown", () =>
             {
                 if (m_Circle != null && m_Circle.ToolEnabled) m_Circle.QueueElevationChangeFromUi(-1);
-                else if (m_SuperEllipse != null && m_SuperEllipse.ToolEnabled) m_SuperEllipse.QueueElevationChangeFromUi(-1);
+                else if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) m_SoftBlock.QueueElevationChangeFromUi(-1);
                 else if (m_Grid != null && m_Grid.ToolEnabled) m_Grid.QueueElevationChangeFromUi(-1);
             }));
 
@@ -355,15 +355,15 @@ namespace MertsToolBox
             AddBinding(new TriggerBinding<float>(ModId, "HelixClearanceStep", (val) => m_Helix?.QueueSetClearanceStep(val)));
             AddBinding(new TriggerBinding(ModId, "HelixToggleDirection", () => m_Helix?.QueueToggleDirection()));
 
-            // SuperEllipse Triggers
-            AddBinding(new TriggerBinding(ModId, "SuperEllipseWidthUp", () => m_SuperEllipse?.QueueWidthChange(+1)));
-            AddBinding(new TriggerBinding(ModId, "SuperEllipseWidthDown", () => m_SuperEllipse?.QueueWidthChange(-1)));
-            AddBinding(new TriggerBinding<int>(ModId, "SuperEllipseWidthStep", (val) => m_SuperEllipse?.QueueSetWidthStep(val)));
-            AddBinding(new TriggerBinding(ModId, "SuperEllipseLengthUp", () => m_SuperEllipse?.QueueLengthChange(+1)));
-            AddBinding(new TriggerBinding(ModId, "SuperEllipseLengthDown", () => m_SuperEllipse?.QueueLengthChange(-1)));
-            AddBinding(new TriggerBinding<int>(ModId, "SuperEllipseLengthStep", (val) => m_SuperEllipse?.QueueSetLengthStep(val)));
-            AddBinding(new TriggerBinding<float>(ModId, "SuperEllipseSetN", (value) => m_SuperEllipse?.SetNFromUi(value)));
-            AddBinding(new TriggerBinding<string>(ModId, "SuperEllipseToggleSnap", (snapType) => m_SuperEllipse?.QueueSnapToggle(snapType)));
+            // SoftBlock Triggers
+            AddBinding(new TriggerBinding(ModId, "SoftBlockWidthUp", () => m_SoftBlock?.QueueWidthChange(+1)));
+            AddBinding(new TriggerBinding(ModId, "SoftBlockWidthDown", () => m_SoftBlock?.QueueWidthChange(-1)));
+            AddBinding(new TriggerBinding<int>(ModId, "SoftBlockWidthStep", (val) => m_SoftBlock?.QueueSetWidthStep(val)));
+            AddBinding(new TriggerBinding(ModId, "SoftBlockLengthUp", () => m_SoftBlock?.QueueLengthChange(+1)));
+            AddBinding(new TriggerBinding(ModId, "SoftBlockLengthDown", () => m_SoftBlock?.QueueLengthChange(-1)));
+            AddBinding(new TriggerBinding<int>(ModId, "SoftBlockLengthStep", (val) => m_SoftBlock?.QueueSetLengthStep(val)));
+            AddBinding(new TriggerBinding<float>(ModId, "SetBorderRadius", (value) => m_SoftBlock?.SetBorderRadiusFromUi(value)));
+            AddBinding(new TriggerBinding<string>(ModId, "SoftBlockToggleSnap", (snapType) => m_SoftBlock?.QueueSnapToggle(snapType)));
 
             // Grid Triggers
             AddBinding(new TriggerBinding(ModId, "GridBlockWidthUp", () => m_Grid?.QueueBlockWidthChange(+1)));
@@ -384,7 +384,7 @@ namespace MertsToolBox
         private float[] GetCurrentElevationSteps()
         {
             if (m_Circle != null && m_Circle.ToolEnabled) return m_Circle.GetElevationStepArray();
-            if (m_SuperEllipse != null && m_SuperEllipse.ToolEnabled) return m_SuperEllipse.GetElevationStepArray();
+            if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.GetElevationStepArray();
             if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.GetElevationStepArray();
 
             return s_DefaultElevationSteps;
@@ -405,7 +405,7 @@ namespace MertsToolBox
         {
             m_Circle?.RequestDisable(exitMode);
             m_Helix?.RequestDisable(exitMode);
-            m_SuperEllipse?.RequestDisable(exitMode);
+            m_SoftBlock?.RequestDisable(exitMode);
             m_Grid?.RequestDisable(exitMode);
         }
 
@@ -753,8 +753,8 @@ namespace MertsToolBox
             if (m_Helix != null)
                 parts.Add($"{m_Helix.ToolId}|{m_Helix.ToolName}|{m_Helix.ToolId}");
 
-            if (m_SuperEllipse != null)
-                parts.Add($"{m_SuperEllipse.ToolId}|{m_SuperEllipse.ToolName}|{m_SuperEllipse.ToolId}");
+            if (m_SoftBlock != null)
+                parts.Add($"{m_SoftBlock.ToolId}|{m_SoftBlock.ToolName}|{m_SoftBlock.ToolId}");
 
             if (m_Grid != null)
                 parts.Add($"{m_Grid.ToolId}|{m_Grid.ToolName}|{m_Grid.ToolId}");
@@ -778,11 +778,11 @@ namespace MertsToolBox
                        $"Turns: {FormatSmart(m_Helix.GetCurrentTurns())} - " +
                        $"Clearance: {FormatSmart(m_Helix.GetCurrentClearance())}m";
             }
-            if (m_SuperEllipse != null && m_SuperEllipse.ToolEnabled)
+            if (m_SoftBlock != null && m_SoftBlock.ToolEnabled)
             {
-                return $"Width: {FormatSmart(m_SuperEllipse.GetCurrentWidth())}m - " +
-                       $"Length: {FormatSmart(m_SuperEllipse.GetCurrentLength())}m - " +
-                       $"N: {FormatSmart(m_SuperEllipse.GetCurrentNSliderValue())}";
+                return $"Width: {FormatSmart(m_SoftBlock.GetCurrentWidth())}m - " +
+                       $"Length: {FormatSmart(m_SoftBlock.GetCurrentLength())}m - " +
+                       $"Radius: {FormatSmart(m_SoftBlock.GetCurrentBorderRadius())}";
             }
             if (m_Grid != null && m_Grid.ToolEnabled)
             {

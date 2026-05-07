@@ -23,13 +23,13 @@ namespace MertsToolBox.Settings
                 // Tabs
                 { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_CIRCLE), "Perfect Circle" },
                 { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_HELIX), "Procedural Helix" },
-                { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_SUPERELLIPSE), "SuperEllipse" },
+                { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_SOFTBLOCK), "Soft Block" },
                 { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_GRID), "Smart Grid" },
 
                 // Fallback tab keys
                 { "Settings.TAB[Circle]", "Perfect Circle" },
                 { "Settings.TAB[Helix]", "Procedural Helix" },
-                { "Settings.TAB[Super Ellipse]", "SuperEllipse" },
+                { "Settings.TAB[Block]", "Soft Block" },
                 { "Settings.TAB[Grid]", "Smart Grid" },
 
                 // Groups
@@ -42,7 +42,7 @@ namespace MertsToolBox.Settings
                 { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultCircleDiameter)), "Default Circle Diameter (m)" },
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultCircleDiameter)), "Sets the starting diameter used when the Circle tool is opened." },
 
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForCircleDiameterAdjustment)), "Use Ctrl+Wheel for Circle Diameter Adjustment" },
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForCircleDiameterAdjustment)), "Use Ctrl+Wheel for Circle Diameter adjustment" },
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForCircleDiameterAdjustment)), "Allows the Circle tool diameter to be adjusted with Ctrl+Mouse Wheel. Recommended to turn this off if it conflicts with another binding." },
 
                 // -------------------------
@@ -57,20 +57,20 @@ namespace MertsToolBox.Settings
                 { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultClearance)), "Default Clearance (m)" },
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultClearance)), "Sets the default vertical clearance between helix levels." },
 
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForHelixTurnAdjustment)), "Use Ctrl+Wheel for Helix Diameter Adjustment" },
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForHelixTurnAdjustment)), "Use Ctrl+Wheel for Helix Diameter adjustment" },
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForHelixTurnAdjustment)), "Allows the Helix tool diameter to be adjusted with Ctrl+Mouse Wheel. Recommended to turn this off if it conflicts with another binding." },
                
                 // -------------------------
-                // Super Ellipse
+                // Soft Block
                 // -------------------------
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultEllipseWidth)), "Default Shape Width (m)" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultEllipseWidth)), "Sets the starting width used when the Super Ellipse tool is opened." },
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockWidth)), "Default Shape Width (m)" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockWidth)), "Sets the starting width used when the Soft Block tool is opened." },
 
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultEllipseLength)), "Default Shape Length (m)" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultEllipseLength)), "Sets the starting length used when the Super Ellipse tool is opened." },
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockLength)), "Default Shape Length (m)" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockLength)), "Sets the starting length used when the SSoft Block tool is opened." },
 
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForShapeAdjustment)), "Use Ctrl+Wheel for Shape Adjustment" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForShapeAdjustment)), "Allows the Super Ellipse shape parameter to be adjusted with Ctrl+Mouse Wheel. Recommended to turn this off if it conflicts with another binding." },
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForSoftBlockBorderRadius)), "Use Ctrl+Wheel for border radius adjustment" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForSoftBlockBorderRadius)), "Allows the Soft Block border radius to be adjusted with Ctrl+Mouse Wheel. Recommended to turn this off if it conflicts with another binding." },
 
                 // -------------------------
                 // Grid

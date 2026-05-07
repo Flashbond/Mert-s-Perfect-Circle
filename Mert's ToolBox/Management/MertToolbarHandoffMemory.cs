@@ -20,7 +20,7 @@ namespace MertsToolBox.Management
 
             var circle = world.GetExistingSystemManaged<CircleToolSystem>();
             var helix = world.GetExistingSystemManaged<HelixToolSystem>();
-            var superEllipse = world.GetExistingSystemManaged<SuperEllipseToolSystem>();
+            var superEllipse = world.GetExistingSystemManaged<SoftBlockToolSystem>();
             var grid = world.GetExistingSystemManaged<GridToolSystem>();
 
             return (circle != null && circle.ToolEnabled) ||

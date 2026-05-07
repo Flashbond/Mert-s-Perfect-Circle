@@ -1,5 +1,6 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { bindValue, trigger, useValue } from "cs2/api";
+import { MertSlider } from "./utils/MertSlider";
 import { formatMeters, formatSmart } from "./utils/Formatters";
 import { VanillaResolver } from "./utils/VanilliaResolver";
 import { parseActiveTool, ActiveTool } from "./utils/ActiveTool";
@@ -8,9 +9,15 @@ import { parseActiveTool, ActiveTool } from "./utils/ActiveTool";
 const activeToolMode$ = bindValue<string>("MertsToolBox", "ActiveTool", "None|None");
 const toolBoxVisible$ = bindValue<boolean>("MertsToolBox", "IsToolBoxAllowed");
 
-const circleDiameter$ = bindValue<number>("MertsToolBox", "CircleDiameter");
-const circleDiameterStepValue$ = bindValue<number>("MertsToolBox", "CircleDiameterStepValue");
-const circleDiameterStepArray$ = bindValue<number[]>("MertsToolBox", "CircleDiameterStepArray");
+const softBlockWidth$ = bindValue<number>("MertsToolBox", "SoftBlockWidth");
+const softBlockWidthStepValue$ = bindValue<number>("MertsToolBox", "SoftBlockWidthStepValue");
+const softBlockWidthStepArray$ = bindValue<number[]>("MertsToolBox", "SoftBlockWidthStepArray");
+
+const softBlockLength$ = bindValue<number>("MertsToolBox", "SoftBlockLength");
+const softBlockLengthStepValue$ = bindValue<number>("MertsToolBox", "SoftBlockLengthStepValue");
+const softBlockLengthStepArray$ = bindValue<number[]>("MertsToolBox", "SoftBlockLengthStepArray");
+
+const borderRadius$ = bindValue<number>("MertsToolBox", "GetBorderRadius");
 
 const elevationValue$ = bindValue<number>("MertsToolBox", "ElevationValue");
 const elevationStepValue$ = bindValue<number>("MertsToolBox", "ElevationStepValue");
@@ -21,15 +28,14 @@ const isSnapNetSideActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetSideAc
 const isSnapNetAreaActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetAreaActive");
 
 // --- COMPONENT DEFINITION ---
-export const CirclePanelSection = () => {
+export const SoftBlockPanelSection = () => {
 
     // --- VISIBILITY & LIFECYCLE ---
-
     const activeToolRaw = useValue(activeToolMode$) as string;
     const activeTool = parseActiveTool(activeToolRaw);
 
     const isToolBoxAllowed = useValue(toolBoxVisible$) as boolean;
-    const rawShow: boolean = isToolBoxAllowed && activeTool.id === "Circle";
+    const rawShow: boolean = isToolBoxAllowed && activeTool.id === "SoftBlock";
     const [delayedShow, setDelayedShow] = useState(false);
 
     useEffect(() => {
@@ -49,9 +55,15 @@ export const CirclePanelSection = () => {
     }, [rawShow]);
 
     // --- DATA BINDING EVALUATION ---
-    const diameter = useValue(circleDiameter$) as number;
-    const diameterStepValue = useValue(circleDiameterStepValue$) as number;
-    const diameterStepValues = useValue(circleDiameterStepArray$) as number[];
+    const width = useValue(softBlockWidth$) as number;
+    const widthStepValue = useValue(softBlockWidthStepValue$) as number;
+    const widthStepValues = useValue(softBlockWidthStepArray$) as number[];
+
+    const length = useValue(softBlockLength$) as number;
+    const lengthStepValue = useValue(softBlockLengthStepValue$) as number;
+    const lengthStepValues = useValue(softBlockLengthStepArray$) as number[];
+
+    const borderRadius = useValue(borderRadius$) as number;
 
     const elevationValue = useValue(elevationValue$) as number;
     const elevationStepValue = useValue(elevationStepValue$) as number;
@@ -60,52 +72,91 @@ export const CirclePanelSection = () => {
     const isSnapGeometryActive = useValue(isSnapGeometryActive$) as boolean;
     const isSnapNetSideActive = useValue(isSnapNetSideActive$) as boolean;
     const isSnapNetAreaActive = useValue(isSnapNetAreaActive$) as boolean;
-    
+
     // --- RENDER ---
     if (!delayedShow) return null;
 
     return (
         <div
-            className={`circle-panel-container`}
+            className={`superellipse-panel-container`}
             onMouseDown={(e) => { e.stopPropagation(); }}
             onContextMenu={(e) => { e.stopPropagation(); }}
             style={{ display: "flex", flexDirection: "column" }}
         >
-          
             <div className={'panel-header'} style={{
                 fontSize: "1.1em",
                 fontWeight: 600,
                 padding: "2rem 10rem"
             }}>{activeTool.name}</div>
 
-            {/* DIAMETER ROW */}
-            <VanillaResolver.instance.Section title="Diameter">
+            {/* WIDTH ROW */}
+            <VanillaResolver.instance.Section title="Width">
                 <VanillaResolver.instance.ToolButton
                     src="Media/Glyphs/ThickStrokeArrowDown.svg"
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "CircleDiameterDown")}
+                    onSelect={() => trigger("MertsToolBox", "SoftBlockWidthDown")}
                 />
 
                 <div className={VanillaResolver.instance.mouseToolOptionsTheme["number-field"]}>
-                    {formatMeters(diameter)}
+                    {formatMeters(width)}
                 </div>
 
                 <VanillaResolver.instance.ToolButton
                     src="Media/Glyphs/ThickStrokeArrowUp.svg"
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "CircleDiameterUp")}
+                    onSelect={() => trigger("MertsToolBox", "SoftBlockWidthUp")}
                 />
-
                 <VanillaResolver.instance.StepToolButton
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    tooltip={`${diameterStepValue}`}
-                    values={diameterStepValues}
-                    selectedValue={diameterStepValue}
+                    selectedValue={widthStepValue}
+                    values={widthStepValues}
+                    tooltip={`${widthStepValue}`}
                     onSelect={(val) => {
-                        console.log("Gelen Val:", val),
-                        trigger("MertsToolBox", "CircleDiameterStep", val);
+                        trigger("MertsToolBox", "SoftBlockWidthStep", val);
                     }}
                 />
+            </VanillaResolver.instance.Section>
+
+            {/* LENGTH ROW */}
+            <VanillaResolver.instance.Section title="Length">
+                <VanillaResolver.instance.ToolButton
+                    src="Media/Glyphs/ThickStrokeArrowDown.svg"
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    onSelect={() => trigger("MertsToolBox", "SoftBlockLengthDown")}
+                />
+
+                <div className={VanillaResolver.instance.mouseToolOptionsTheme["number-field"]}>
+                    {formatMeters(length)}
+                </div>
+
+                <VanillaResolver.instance.ToolButton
+                    src="Media/Glyphs/ThickStrokeArrowUp.svg"
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    onSelect={() => trigger("MertsToolBox", "SoftBlockLengthUp")}
+                />
+                <VanillaResolver.instance.StepToolButton
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    selectedValue={lengthStepValue}
+                    values={lengthStepValues}
+                    tooltip={`${lengthStepValue}`}
+                    onSelect={(val) => {
+                        trigger("MertsToolBox", "SoftBlockLengthStep", val);
+                    }}
+                />
+            </VanillaResolver.instance.Section>
+
+            {/* N VALUE (CURVATURE) ROW */}
+            <VanillaResolver.instance.Section title="Border Radius">
+                    <MertSlider
+                        min={0}
+                        max={10}
+                        step={0.1}
+                        value={borderRadius}
+                        onChange={(newVal) => {
+                            trigger("MertsToolBox", "SetBorderRadius", newVal);
+                        }}
+                        formatValue={(v) => v.toFixed(1)}
+                    />
             </VanillaResolver.instance.Section>
 
             {/* ELEVATION ROW */}
@@ -143,7 +194,7 @@ export const CirclePanelSection = () => {
                     src="Media/Tools/Snap Options/ExistingGeometry.svg"
                     selected={isSnapGeometryActive}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "ToggleCircleSnap", "Geometry")}
+                    onSelect={() => trigger("MertsToolBox", "SoftBlockToggleSnap", "Geometry")}
                     tooltip={`Existing Geometry`}
                 />
 
@@ -151,7 +202,7 @@ export const CirclePanelSection = () => {
                     src="Media/Tools/Snap Options/NetSide.svg"
                     selected={isSnapNetSideActive}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "ToggleCircleSnap", "NetSide")}
+                    onSelect={() => trigger("MertsToolBox", "SoftBlockToggleSnap", "NetSide")}
                     tooltip={`Net Side`}
                 />
 
@@ -159,7 +210,7 @@ export const CirclePanelSection = () => {
                     src="Media/Tools/Snap Options/NetArea.svg"
                     selected={isSnapNetAreaActive}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "ToggleCircleSnap", "NetArea")}
+                    onSelect={() => trigger("MertsToolBox", "SoftBlockToggleSnap", "NetArea")}
                     tooltip={`Net Area`}
                 />
             </VanillaResolver.instance.Section>

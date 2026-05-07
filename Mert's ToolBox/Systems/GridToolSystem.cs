@@ -303,8 +303,8 @@ namespace MertsToolBox
         {
             float baseElevation = GetCurrentNetToolElevation();
 
-            float stepX = (m_CurrentSessionBlockWidthU * 8f) + m_CurrentWidth;
-            float stepY = (m_CurrentSessionBlockLengthU * 8f) + m_CurrentWidth;
+            float stepX = (m_CurrentSessionBlockWidthU * 8f) + m_CurrentRoadWidth;
+            float stepY = (m_CurrentSessionBlockLengthU * 8f) + m_CurrentRoadWidth;
 
             float originX = -0.5f * m_CurrentSessionColumns * stepX;
             float originY = -0.5f * m_CurrentSessionRows * stepY;

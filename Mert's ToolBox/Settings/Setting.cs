@@ -9,7 +9,7 @@ namespace MertsToolBox.Settings
     [SettingsUITabOrder(
         TAB_CIRCLE,
         TAB_HELIX,
-        TAB_SUPERELLIPSE,
+        TAB_SOFTBLOCK,
         TAB_GRID
     )]
     [SettingsUIGroupOrder(GROUP_DEFAULTS, GROUP_CONTROLS)]
@@ -17,7 +17,7 @@ namespace MertsToolBox.Settings
     {
         public const string TAB_CIRCLE = "Circle";
         public const string TAB_HELIX = "Helix";
-        public const string TAB_SUPERELLIPSE = "Super Ellipse";
+        public const string TAB_SOFTBLOCK = "Soft Block";
         public const string TAB_GRID = "Grid";
 
         public const string GROUP_DEFAULTS = "Defaults";
@@ -31,9 +31,9 @@ namespace MertsToolBox.Settings
         private float m_DefaultClearance = 8f;
         private bool m_UseCtrlWheelForHelixTurnAdjustment = false;
 
-        private int m_DefaultEllipseWidth = 96;
-        private int m_DefaultEllipseLength = 192;
-        private bool m_UseCtrlWheelForShapeAdjustment = false;
+        private int m_DefaultSoftBlockWidth = 96;
+        private int m_DefaultSoftBlockLength = 192;
+        private bool m_UseCtrlWheelForSoftBlockBorderRadius = false;
 
         private int m_BlockWidthU = 6;
         private int m_BlockLengthU = 6;
@@ -141,47 +141,47 @@ namespace MertsToolBox.Settings
         }
 
         // -------------------------
-        // Super Ellipse
+        // Soft Block
         // -------------------------
-        [SettingsUISection(TAB_SUPERELLIPSE, GROUP_DEFAULTS)]
+        [SettingsUISection(TAB_SOFTBLOCK, GROUP_DEFAULTS)]
         [SettingsUISlider(min = 48, max = 320, step = 1)]
-        public int DefaultEllipseWidth
+        public int DefaultSoftBlockWidth
         {
-            get => m_DefaultEllipseWidth;
+            get => m_DefaultSoftBlockWidth;
             set
             {
                 int clamped = Math.Clamp(value, 48, 320);
-                if (m_DefaultEllipseWidth == clamped) return;
+                if (m_DefaultSoftBlockWidth == clamped) return;
 
-                m_DefaultEllipseWidth = clamped;
+                m_DefaultSoftBlockWidth = clamped;
                 OnOptionsChanged?.Invoke();
             }
         }
 
-        [SettingsUISection(TAB_SUPERELLIPSE, GROUP_DEFAULTS)]
+        [SettingsUISection(TAB_SOFTBLOCK, GROUP_DEFAULTS)]
         [SettingsUISlider(min = 48, max = 320, step = 1)]
-        public int DefaultEllipseLength
+        public int DefaultSoftBlockLength
         {
-            get => m_DefaultEllipseLength;
+            get => m_DefaultSoftBlockLength;
             set
             {
                 int clamped = Math.Clamp(value, 48, 320);
-                if (m_DefaultEllipseLength == clamped) return;
+                if (m_DefaultSoftBlockLength == clamped) return;
 
-                m_DefaultEllipseLength = clamped;
+                m_DefaultSoftBlockLength = clamped;
                 OnOptionsChanged?.Invoke();
             }
         }
 
-        [SettingsUISection(TAB_SUPERELLIPSE, GROUP_CONTROLS)]
-        public bool UseCtrlWheelForShapeAdjustment
+        [SettingsUISection(TAB_SOFTBLOCK, GROUP_CONTROLS)]
+        public bool UseCtrlWheelForSoftBlockBorderRadius
         {
-            get => m_UseCtrlWheelForShapeAdjustment;
+            get => m_UseCtrlWheelForSoftBlockBorderRadius;
             set
             {
-                if (m_UseCtrlWheelForShapeAdjustment == value) return;
+                if (m_UseCtrlWheelForSoftBlockBorderRadius == value) return;
 
-                m_UseCtrlWheelForShapeAdjustment = value;
+                m_UseCtrlWheelForSoftBlockBorderRadius = value;
                 OnOptionsChanged?.Invoke();
             }
         }
@@ -270,9 +270,9 @@ namespace MertsToolBox.Settings
             m_DefaultClearance = 8f;
             m_UseCtrlWheelForHelixTurnAdjustment = false;
 
-            m_DefaultEllipseWidth = 96;
-            m_DefaultEllipseLength = 192;
-            m_UseCtrlWheelForShapeAdjustment = false;
+            m_DefaultSoftBlockWidth = 96;
+            m_DefaultSoftBlockLength = 192;
+            m_UseCtrlWheelForSoftBlockBorderRadius = false;
 
             m_BlockWidthU = 6;
             m_BlockLengthU = 6;

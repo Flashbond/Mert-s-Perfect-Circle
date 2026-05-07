@@ -635,13 +635,18 @@ namespace MertsToolBox
                 s_ValueProperty = bindingObj.GetType().GetProperty("value");
 
             if (s_ValueProperty == null) return false;
-
-            var rawValue = s_ValueProperty.GetValue(bindingObj);
-            if (rawValue is Entity entity)
+            try
             {
-                selectedAssetEntity = entity;
+                var rawValue = s_ValueProperty.GetValue(bindingObj);
+                if (rawValue is Entity entity)
+                {
+                    selectedAssetEntity = entity;
+                }
             }
-
+            catch
+            {
+                return false;
+            }
             return selectedAssetEntity != Entity.Null;
         }
         #endregion

@@ -5,7 +5,7 @@ namespace MertsToolBox
     public abstract partial class MertBaseToolSystem
     {
         #region Tool Session Variables
-        protected float m_CurrentWidth = 8f;
+        protected float m_CurrentRoadWidth = 8f;
         #endregion
 
         #region UI State Management
@@ -27,7 +27,7 @@ namespace MertsToolBox
                 PrimeTabHandoffSourceContext();
 
                 Game.Prefabs.NetPrefab currentRoad = TryGetCurrentSelectedRoadPrefab();
-                m_CurrentWidth = currentRoad != null ? GetCachedRoadWidth(currentRoad) : 8f;
+                m_CurrentRoadWidth = currentRoad != null ? GetCachedRoadWidth(currentRoad) : 8f;
 
                 OnToolActivated();
                 PrimeAndShowPreviewOnEnable();

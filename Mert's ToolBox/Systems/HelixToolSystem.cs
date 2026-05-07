@@ -139,10 +139,10 @@ namespace MertsToolBox.Systems
         /// </summary>
         private int GetMinimumAllowedDiameter()
         {
-            float collisionMin = m_CurrentWidth * 3f;
+            float collisionMin = m_CurrentRoadWidth * 3f;
 
             float clearance = GetCurrentClearance();
-            float slopeMin = (clearance / (math.PI * 0.25f)) + m_CurrentWidth;
+            float slopeMin = (clearance / (math.PI * 0.25f)) + m_CurrentRoadWidth;
 
             return (int)math.ceil(math.max(collisionMin, slopeMin));
         }
@@ -292,9 +292,9 @@ namespace MertsToolBox.Systems
 
             subNets = null; widthCells = 0; depthCells = 0; costElevation = 0f;
 
-            float buildRadius = (m_CurrentSessionDiameter - m_CurrentWidth) * 0.5f;
+            float buildRadius = (m_CurrentSessionDiameter - m_CurrentRoadWidth) * 0.5f;
 
-            if (buildRadius < m_CurrentWidth) return false;
+            if (buildRadius < m_CurrentRoadWidth) return false;
 
             int segments = (int)math.ceil(m_CurrentSessionTurns * 8f);
             float baseElevation = GetCurrentNetToolElevation();

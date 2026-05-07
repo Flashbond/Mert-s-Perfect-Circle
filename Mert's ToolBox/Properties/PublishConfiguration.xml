@@ -28,7 +28,7 @@
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/merts-perfect-circle-feedback-suggestions-bug-reports.1911521/" />
 
 	<!--Version of the mod-->
-	<ModVersion Value="2.5.0" />
+	<ModVersion Value="2.5.1" />
 
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.5.*" />
@@ -41,15 +41,12 @@
 
 	<!--Change log for new version-->
 	<ChangeLog>
-		* Compability with custom roads.
-		* Live elevation change added.
-		* Added missing UI tooltips.
-		* Refurbished icons.
-		* Tested with 1.5.7f1
+		* SuperEllipse tool has been replaced by Soft Block tool.
+		* Tested with 1.5.8f1
 	</ChangeLog>
 
 	<!--External links-->
-	<ExternalLink Type="github" Url="https://github.com/Flashbond/Mert-s-ToolBox/tree/beta-test/" />
+	<ExternalLink Type="github" Url="https://github.com/Flashbond/Mert-s-ToolBox/" />
 	<!-- İstersen YouTube ekle -->
 
 	<!--Supported values Public, Private, Unlisted-->

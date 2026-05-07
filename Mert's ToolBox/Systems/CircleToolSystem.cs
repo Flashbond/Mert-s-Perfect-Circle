@@ -70,7 +70,7 @@ namespace MertsToolBox.Systems
         /// </summary>
         public CircleMetrics GetCurrentCircleMetrics()
         {
-            return CircleMetrics.FromOuterDiameter(GetCurrentDiameter(), m_CurrentWidth);
+            return CircleMetrics.FromOuterDiameter(GetCurrentDiameter(), m_CurrentRoadWidth);
         }
 
         /// <summary>
@@ -78,7 +78,7 @@ namespace MertsToolBox.Systems
         /// </summary>
         private int GetMinimumAllowedDiameter()
         {
-            return (int)math.ceil(m_CurrentWidth * 3f);
+            return (int)math.ceil(m_CurrentRoadWidth * 3f);
         }
         #endregion
 
@@ -151,9 +151,9 @@ namespace MertsToolBox.Systems
 
             subNets = null; widthCells = 0; depthCells = 0; costElevation = 0f;
 
-            float buildR = (m_CurrentSessionDiameter - m_CurrentWidth) * 0.5f;
+            float buildR = (m_CurrentSessionDiameter - m_CurrentRoadWidth) * 0.5f;
 
-            if (buildR < m_CurrentWidth) return false;
+            if (buildR < m_CurrentRoadWidth) return false;
 
             costElevation = GetCurrentNetToolElevation();
             int segments = CalculateAutoSegments(buildR);

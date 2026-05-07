@@ -1,6 +1,6 @@
 MERT'S TOOLBOX
 
-A comprehensive suite of procedural road creation tools for Cities: Skylines II. Precision meets performance with robust, zero-flicker procedural roadways. 
+A comprehensive suite of procedural road creation tools for Cities: Skylines II. Precision meets performance with robust, zero-flicker procedural roadways.
 
 INCLUDED TOOLS
 
@@ -8,7 +8,7 @@ INCLUDED TOOLS
 
 • Procedural Helix: Build complex, multi-level spiral interchanges with customizable turns, clearance, and radius.
 
-• Super Ellipse: Construct smooth, continuous super-elliptical road networks with dynamic shape controls.
+• Soft Block: Construct smooth, continuous rectangular road networks with border radius.
 
 • Smart Grid: Generate extensive, perfectly aligned road grids instantly with adjustable rows, columns, and block dimensions.
 
@@ -25,10 +25,12 @@ CORE FEATURES
 • Native UI Integration: Seamlessly integrated into the game's standard tool panel.
 
 USAGE
-1.	Select a standard road network from the vanilla menu.
-2.	Activate your desired tool (Circle, Helix, Grid, or Ellipse) from the tool panel.
-3.	Adjust parameters (size, elevation, turns, etc.) using the designated hotkeys.
-4.	Click to place the procedural shape into your city.
+
+1. Select a standard road network from the vanilla menu.
+2. Activate your desired tool (Circle, Helix, Grid, or Ellipse) from the tool panel.
+3. Adjust parameters (size, elevation, turns, etc.) using the designated hotkeys.
+4. Click to place the procedural shape into your city.
 
 COMPATIBILITY
 Currently optimized for standard road types. Some specialized networks (bridges, dirt roads, pedestrian paths, alleys) are intentionally restricted to maintain strict geometric consistency.
+

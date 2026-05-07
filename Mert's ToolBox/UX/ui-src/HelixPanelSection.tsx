@@ -75,9 +75,11 @@ export const HelixPanelSection = () => {
             onContextMenu={(e) => { e.stopPropagation(); }}
             style={{ display: "flex", flexDirection: "column" }}
         >
-            <h3 className={'panel-header'} style={{
-                paddingLeft: "12rem"
-            }}>{activeTool.name}</h3>
+            <div className={'panel-header'} style={{
+                fontSize: "1.1em",
+                fontWeight: 600,
+                padding: "2rem 10rem"
+            }}>{activeTool.name}</div>
 
             {/* DIAMETER ROW */}
             <VanillaResolver.instance.Section title="Diameter">
@@ -162,7 +164,7 @@ export const HelixPanelSection = () => {
                 <VanillaResolver.instance.ToolButton
                     src={ccwIcon}
                     selected={!isClockwise}
-                    tooltip={!isClockwise ? "Counter-Clockwise ON" : "Counter-Clockwise OFF"}
+                    tooltip={!isClockwise ? "CCW ON" : "CCW OFF"}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
                     onSelect={() => trigger("MertsToolBox", "HelixToggleDirection")}
                 />

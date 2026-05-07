@@ -37,7 +37,7 @@ namespace MertsToolBox.Core
 
             updateSystem.UpdateAt<CircleToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<HelixToolSystem>(SystemUpdatePhase.ToolUpdate);
-            updateSystem.UpdateAt<SuperEllipseToolSystem>(SystemUpdatePhase.ToolUpdate);
+            updateSystem.UpdateAt<SoftBlockToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<GridToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<MertToolBoxUISystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.UpdateAt<HelixToolErrorFlagSystem>(SystemUpdatePhase.ToolUpdate);

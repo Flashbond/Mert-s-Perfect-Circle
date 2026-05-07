@@ -7,14 +7,13 @@ import { parseActiveTool, ActiveTool } from "./utils/ActiveTool";
 
 import { CirclePanelSection } from "./CirclePanelSection";
 import { HelixPanelSection } from "./HelixPanelSection";
-import { SuperEllipsePanelSection } from "./SuperEllipsePanelSection";
+import { SoftBlockPanelSection } from "./SoftBlockPanelSection";
 import { GridPanelSection } from "./GridPanelSection";
 import { ToolBoxActionHints } from "./utils/ToolBoxActionHints";
 
-
 import circleIcon from "./Icons/Circle.svg";
 import helixIcon from "./Icons/Helix.svg";
-import superEllipseIcon from "./Icons/Ellipse.svg";
+import softBlockIcon from "./Icons/SoftBlock.svg";
 import gridIcon from "./Icons/SmartGrid.svg";
 
 type RawToolDef = {
@@ -32,13 +31,13 @@ type ToolDef = {
 const ModId = "MertsToolBox";
 
 const toolList$ = bindValue<string>(ModId, "ToolList", "");
-const activeToolMode$ = bindValue<string>(ModId, "ActiveTool", "None");
+const activeToolMode$ = bindValue<string>(ModId, "ActiveTool", "None|None");
 const isToolBoxAllowed$ = bindValue<boolean>(ModId, "IsToolBoxAllowed", false);
 
 const icons: Record<string, string> = {
     Circle: circleIcon,
     Helix: helixIcon,
-    Ellipse: superEllipseIcon,
+    SoftBlock: softBlockIcon,
     Grid: gridIcon
 };
 
@@ -72,14 +71,16 @@ function preloadAllToolIcons() {
 }
 
 const ToolBoxModeRow = () => {
-    const activeTool = useValue(activeToolMode$) as string;
+    const activeToolRaw = useValue(activeToolMode$) as string;
+    const activeTool = parseActiveTool(activeToolRaw);
+
     const toolsJson = useValue(toolList$) as string;
     const toolDefs = buildToolDefs(toolsJson);
 
     return (
         <VanillaResolver.instance.Section title="Mert's ToolBox">
             {toolDefs.map((tool: ToolDef) => {
-                const isSelected = activeTool === tool.id;
+                const isSelected = activeTool.id === tool.id;
 
                 return (
                     <VanillaResolver.instance.ToolButton
@@ -135,7 +136,7 @@ const register: ModRegistrar = (moduleRegistry) => {
 
                     <CirclePanelSection />
                     <HelixPanelSection />
-                    <SuperEllipsePanelSection />
+                    <SoftBlockPanelSection />
                     <GridPanelSection />
                 </div>
             );

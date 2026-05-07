@@ -1,14 +1,14 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useValue, bindValue } from "cs2/api";
-
+import { parseActiveTool } from "./ActiveTool";
 
 const moduleName = "MertsToolBox";
 
-const activeTool$ = bindValue<string>(moduleName, "ActiveTool", "None");
+const activeTool$ = bindValue<string>(moduleName, "ActiveTool", "None|None");
 const showCircleCtrlWheelHint$ = bindValue<boolean>(moduleName, "ShowCircleCtrlWheelHint", false);
 const showHelixCtrlWheelHint$ = bindValue<boolean>(moduleName, "ShowHelixCtrlWheelHint", false);
-const showSuperEllipseCtrlWheelHint$ = bindValue<boolean>(moduleName, "ShowSuperEllipseCtrlWheelHint", false);
+const showSoftBlockCtrlWheelHint$ = bindValue<boolean>(moduleName, "ShowSoftBlockCtrlWheelHint", false);
 const actionStatusText$ = bindValue<string>(moduleName, "ActionStatusText", "");
 const MPC_HINT_HOST_ATTR = "data-mpc-action-hint-root";
 
@@ -43,10 +43,11 @@ function ensurePortalHost(parent: HTMLElement): HTMLElement {
 
 export const ToolBoxActionHints = () => {
     const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
-    const activeTool = useValue(activeTool$);
+    const activeToolRaw = useValue(activeTool$) as string;
+    const activeTool = parseActiveTool(activeToolRaw);
     const showCircleCtrlWheelHint = useValue(showCircleCtrlWheelHint$) as boolean;
     const showHelixCtrlWheelHint = useValue(showHelixCtrlWheelHint$) as boolean;
-    const showSuperEllipseCtrlWheelHint = useValue(showSuperEllipseCtrlWheelHint$) as boolean;
+    const showSoftBlockCtrlWheelHint = useValue(showSoftBlockCtrlWheelHint$) as boolean;
     const actionStatusText = useValue(actionStatusText$) as string;
     useEffect(() => {
         const syncHost = () => {
@@ -69,13 +70,13 @@ export const ToolBoxActionHints = () => {
 
     const content = useMemo(() => {
         
-        if (activeTool === "None") return null;
+        if (activeTool.id === "None") return null;
 
         let actionText = "";
         let statusText = actionStatusText;
         let showCtrlWheelHint = false;
 
-        switch (activeTool) {
+        switch (activeTool.id) {
             case "Circle":
                 actionText = "Precise Diameter";
                 showCtrlWheelHint = showCircleCtrlWheelHint;
@@ -86,9 +87,9 @@ export const ToolBoxActionHints = () => {
                 showCtrlWheelHint = showHelixCtrlWheelHint;
                 break;
 
-            case "SuperEllipse":
-                actionText = "Precise Shape";
-                showCtrlWheelHint = showSuperEllipseCtrlWheelHint;
+            case "SoftBlock":
+                actionText = "Border Radius";
+                showCtrlWheelHint = showSoftBlockCtrlWheelHint;
                 break;
 
             case "Grid":
@@ -129,11 +130,11 @@ export const ToolBoxActionHints = () => {
         activeTool,
         showCircleCtrlWheelHint,
         showHelixCtrlWheelHint,
-        showSuperEllipseCtrlWheelHint,
+        showSoftBlockCtrlWheelHint,
         actionStatusText
     ]);
 
-    if (!portalHost || activeTool === "None") return null;
+    if (!portalHost || activeTool.id === "None") return null;
 
     return createPortal(content, portalHost);
 };

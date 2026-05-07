@@ -15,6 +15,16 @@ export const MertSlider: React.FC<MertSliderProps> = ({
     value, min, max, step = 1, onChange, formatValue
 }) => {
     const trackRef = useRef<HTMLDivElement>(null);
+    const lastSentValueRef = useRef<number | null>(null);
+    const sendChange = useCallback((nextValue: number) => {
+        if (lastSentValueRef.current !== null && Math.abs(lastSentValueRef.current - nextValue) < 0.0001) {
+            return;
+        }
+
+        lastSentValueRef.current = nextValue;
+        onChange(nextValue);
+    }, [onChange]);
+
     const [isDragging, setIsDragging] = useState(false);
 
     const calculateValueFromMouse = useCallback((clientX: number) => {
@@ -35,14 +45,14 @@ export const MertSlider: React.FC<MertSliderProps> = ({
         trigger("MertsToolBox", "UiInteracted");
         
         setIsDragging(true);
-        onChange(calculateValueFromMouse(e.clientX));
+        sendChange(calculateValueFromMouse(e.clientX));
     };
 
     useEffect(() => {
         if (!isDragging) return;
 
         const handleMouseMove = (e: MouseEvent) => {
-            onChange(calculateValueFromMouse(e.clientX));
+            sendChange(calculateValueFromMouse(e.clientX));
         };
 
         const handleMouseUp = () => {
