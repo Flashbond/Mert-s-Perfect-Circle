@@ -1,5 +1,5 @@
 ﻿import { ModRegistrar } from "cs2/modding";
-import React, { useEffect } from "react";
+import React, { useEffect, useLayoutEffect } from "react";
 import { trigger, bindValue, useValue } from "cs2/api";
 
 import { VanillaResolver } from "./utils/VanilliaResolver";
@@ -15,12 +15,6 @@ import circleIcon from "./Icons/Circle.svg";
 import helixIcon from "./Icons/Helix.svg";
 import softBlockIcon from "./Icons/SoftBlock.svg";
 import gridIcon from "./Icons/SmartGrid.svg";
-
-type RawToolDef = {
-    id: string;
-    name: string;
-    icon: string;
-};
 
 type ToolDef = {
     id: string;
@@ -42,6 +36,7 @@ const icons: Record<string, string> = {
 };
 
 let hasPreloadedIcons = false;
+let pendingOneShotCleanup = false;
 
 function buildToolDefs(toolListRaw: string): ToolDef[] {
     if (!toolListRaw) return [];
@@ -76,7 +71,20 @@ const ToolBoxModeRow = () => {
 
     const toolsJson = useValue(toolList$) as string;
     const toolDefs = buildToolDefs(toolsJson);
+    function hideForeignMouseToolRowsOnce() {
+        const root = document.querySelector(".merts-toolbox-root") as HTMLElement | null;
+        if (!root) return;
 
+        const parent = root.parentElement;
+        if (!parent) return;
+
+        Array.from(parent.children).forEach((child) => {
+            if (child === root) return;
+
+            const el = child as HTMLElement;
+            el.style.display = "none";
+        });
+    }
     return (
         <VanillaResolver.instance.Section title="Mert's ToolBox">
             {toolDefs.map((tool: ToolDef) => {
@@ -89,7 +97,10 @@ const ToolBoxModeRow = () => {
                         selected={isSelected}
                         tooltip={tool.tooltip}
                         focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                        onSelect={() => trigger(ModId, "ToggleTool", tool.id)}
+                        onSelect={() => {
+                            pendingOneShotCleanup = true;
+                            trigger(ModId, "ToggleTool", tool.id);
+                        }}
                     />
                 );
             })}
@@ -108,6 +119,46 @@ const register: ModRegistrar = (moduleRegistry) => {
             const activeToolJson = useValue(activeToolMode$) as string;
             const activeTool = parseActiveTool(activeToolJson);
             const isActive = isAllowed && activeTool.id !== "None";
+
+            useLayoutEffect(() => {
+                if (!isActive) return;
+
+                const hideForeignRows = () => {
+                    const root = document.querySelector(".merts-toolbox-root") as HTMLElement | null;
+                    if (!root) return;
+
+                    Array.from(root.children).forEach((child) => {
+                        const el = child as HTMLElement;
+
+                        const isOurPanel =
+                            el.classList.contains("circle-panel-container") ||
+                            el.classList.contains("helix-panel-container") ||
+                            el.classList.contains("softblock-panel-container") ||
+                            el.classList.contains("grid-panel-container");
+
+                        if (isOurPanel) return;
+
+                        if (el.className.includes("item_")) {
+                            el.style.display = "none";
+                        }
+                    });
+                };
+
+                hideForeignRows();
+
+                const raf = requestAnimationFrame(() => {
+                    hideForeignRows();
+                });
+
+                const t = setTimeout(() => {
+                    hideForeignRows();
+                }, 16);
+
+                return () => {
+                    cancelAnimationFrame(raf);
+                    clearTimeout(t);
+                };
+            }, [isActive, activeTool.id]);
 
             useEffect(() => {
                 preloadAllToolIcons();

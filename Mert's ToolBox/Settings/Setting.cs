@@ -280,11 +280,5 @@ namespace MertsToolBox.Settings
             m_Rows = 2;
             m_EnableGridSnap = false;
         }
-
-        public override void Apply()
-        {
-            base.Apply();
-            AssetDatabase.global.SaveSettings();
-        }
     }
 }

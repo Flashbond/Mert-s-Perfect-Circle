@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace MertsToolBox.Mert_s_ToolBox.Properties {
+namespace MertsToolBox.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]

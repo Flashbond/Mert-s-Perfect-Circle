@@ -1,4 +1,5 @@
 .sliderContainer {
+    margin-bottom: 0 !important;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -7,12 +8,10 @@
 
 .trackWrapper {
     flex: 0 0 80%;
-    padding: 0 12rem;
+    padding: 16rem 12rem 16rem 18rem;
     width: 80%;
     display: flex;
     align-items: center;
-    padding-top: 16rem;
-    padding-bottom: 16rem;
     margin-top: -16rem;
     margin-bottom: -16rem;
     background-color: unquote("rgba(0, 0, 0, 0)");
@@ -61,15 +60,8 @@
 }
 
 .valueDisplay {
-    flex: 1;
-    min-width: 0;
-    padding: 3rem 4rem;
+    width: auto !important;
+    flex-grow: 1;
     border-radius: 3rem;
     border: 1rem solid unquote("rgba(255, 255, 255, 0.2)");
-    background-color: unquote("rgba(0, 0, 0, 0.15)");
-    line-height: 1.2;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: clip;
 }

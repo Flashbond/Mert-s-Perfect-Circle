@@ -28,7 +28,7 @@
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/merts-perfect-circle-feedback-suggestions-bug-reports.1911521/" />
 
 	<!--Version of the mod-->
-	<ModVersion Value="2.5.1" />
+	<ModVersion Value="2.5.2" />
 
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.5.*" />
@@ -41,8 +41,7 @@
 
 	<!--Change log for new version-->
 	<ChangeLog>
-		* SuperEllipse tool has been replaced by Soft Block tool.
-		* Tested with 1.5.8f1
+		* Refurbished UX
 	</ChangeLog>
 
 	<!--External links-->

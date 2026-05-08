@@ -363,6 +363,8 @@ namespace MertsToolBox
             AddBinding(new TriggerBinding(ModId, "SoftBlockLengthDown", () => m_SoftBlock?.QueueLengthChange(-1)));
             AddBinding(new TriggerBinding<int>(ModId, "SoftBlockLengthStep", (val) => m_SoftBlock?.QueueSetLengthStep(val)));
             AddBinding(new TriggerBinding<float>(ModId, "SetBorderRadius", (value) => m_SoftBlock?.SetBorderRadiusFromUi(value)));
+            AddBinding(new TriggerBinding(ModId, "BeginBorderRadiusDrag", () => m_SoftBlock?.BeginBorderRadiusDrag()));
+            AddBinding(new TriggerBinding(ModId, "EndBorderRadiusDrag", () => m_SoftBlock?.EndBorderRadiusDrag()));
             AddBinding(new TriggerBinding<string>(ModId, "SoftBlockToggleSnap", (snapType) => m_SoftBlock?.QueueSnapToggle(snapType)));
 
             // Grid Triggers

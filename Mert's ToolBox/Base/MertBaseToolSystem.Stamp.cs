@@ -658,7 +658,7 @@ namespace MertsToolBox
             DynamicBuffer<Game.Prefabs.SubNet> subNets = EntityManager.GetBuffer<Game.Prefabs.SubNet>(entity);
             if (subNets.Length == 0)
                 return false;
-
+            
             return true;
         }
 

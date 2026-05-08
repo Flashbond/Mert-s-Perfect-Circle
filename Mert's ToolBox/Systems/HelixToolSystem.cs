@@ -9,7 +9,7 @@ namespace MertsToolBox.Systems
     {
         #region Fields & Properties
         private int m_CurrentSessionDiameter = -1;
-        public readonly int[] m_DiameterSteps = new int[] { 8, 6, 4, 2 };
+        public readonly int[] m_DiameterSteps = new int[] { 8, 4, 2, 1 };
         private int m_CurrentDiameterStepIndex = 0;
 
         private float m_CurrentSessionTurns = -1f;

@@ -10,11 +10,11 @@ namespace MertsToolBox.Systems
     {
         #region Fields & Properties
         private int m_CurrentSessionWidth = -1;
-        public readonly int[] m_WidthSteps = new int[] { 8, 6, 4, 2 };
+        public readonly int[] m_WidthSteps = new int[] { 8, 4, 2, 1 };
         private int m_CurrentWidthStepIndex = 0;
 
         private int m_CurrentSessionLength = -1;
-        public readonly int[] m_LengthSteps = new int[] { 8, 6, 4, 2 };
+        public readonly int[] m_LengthSteps = new int[] { 8, 4, 2, 1 };
         private int m_CurrentLengthStepIndex = 0;
 
         private float m_BorderRadius = 5f;
@@ -25,6 +25,22 @@ namespace MertsToolBox.Systems
         private int m_TargetLengthStep = -1;
         private float m_PendingBorderRadiushange = 0f;
 
+        private enum BorderRadiusSnapState
+        {
+            Armed,
+            Locked,
+            Disarmed
+        }
+
+        private BorderRadiusSnapState m_BorderRadiusSnapState = BorderRadiusSnapState.Armed;
+
+        private const float BorderRadiusSnapTarget = 8f;
+        private const float BorderRadiusSnapThreshold = 0.4f;
+
+        /// <summary>
+        /// Standard cubic Bézier circle approximation.
+        /// </summary>
+        private static readonly float Kappa = 4f * (math.sqrt(2f) - 1f) / 3f;
         /// <summary>
         /// Gets the name of the tool.
         /// </summary>
@@ -39,6 +55,21 @@ namespace MertsToolBox.Systems
         #endregion
 
         #region Input Queuing & State
+        public void BeginBorderRadiusDrag()
+        {
+            // If user starts dragging while already near 8,
+            // allow fine adjustment away from 8.
+            m_BorderRadiusSnapState =
+                math.abs(m_BorderRadius - BorderRadiusSnapTarget) <= BorderRadiusSnapThreshold
+                    ? BorderRadiusSnapState.Disarmed
+                    : BorderRadiusSnapState.Armed;
+        }
+
+        public void EndBorderRadiusDrag()
+        {
+            m_BorderRadiusSnapState = BorderRadiusSnapState.Armed;
+        }
+   
         protected override void OnSettingsChanged()
         {
             if (Mod.settings != null)
@@ -72,7 +103,10 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Sets the current N value directly from the UI slider.
         /// </summary>
-        public void SetBorderRadiusFromUi(float absVal) => SetCurrentBorderRadius(absVal);
+        public void SetBorderRadiusFromUi(float value)
+        {
+            SetCurrentBorderRadius(value, useSnap: true);
+        }
         #endregion
 
         #region Metrics & Data Retrieval
@@ -99,7 +133,6 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Calculates and retrieves the current N slider value mapped to a 1-15 scale.
         /// </summary>
-        // UI Değerini (1-15) Mevcut m_N Üzerinden Hesapla
         public float GetCurrentBorderRadius()
         {
             return m_BorderRadius;
@@ -146,10 +179,39 @@ namespace MertsToolBox.Systems
                 UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.ctrlKey.isPressed)
             {
                 int scrollDir = GetScrollDirection();
-                if (scrollDir != 0) SetCurrentBorderRadius(GetCurrentBorderRadius() + (scrollDir * 0.1f));
+                if (scrollDir != 0) SetCurrentBorderRadiusFromWheel(scrollDir * 0.1f);
             }
         }
+        private void SetCurrentBorderRadiusFromWheel(float delta)
+        {
+            float current = m_BorderRadius;
+            float raw = math.clamp(current + delta, 1f, 10f);
 
+            float currentDist = math.abs(current - BorderRadiusSnapTarget);
+            float rawDist = math.abs(raw - BorderRadiusSnapTarget);
+
+            // Wheel behavior:
+            // If user enters the pill boundary from outside, snap once to 8.
+            // Then disarm so the next wheel tick allows fine adjustment.
+            bool enteredSnapZoneFromOutside =
+                currentDist > BorderRadiusSnapThreshold &&
+                rawDist <= BorderRadiusSnapThreshold;
+
+            if (enteredSnapZoneFromOutside)
+            {
+                m_BorderRadiusSnapState = BorderRadiusSnapState.Disarmed;
+                SetCurrentBorderRadius(BorderRadiusSnapTarget, useSnap: false);
+                return;
+            }
+
+            // Once user moves clearly away, re-arm snap.
+            if (rawDist > BorderRadiusSnapThreshold)
+            {
+                m_BorderRadiusSnapState = BorderRadiusSnapState.Armed;
+            }
+
+            SetCurrentBorderRadius(raw, useSnap: false);
+        }
         /// <summary>
         /// Changes the width by aligning it to the next step value.
         /// </summary>
@@ -210,15 +272,46 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Converts the UI slider value to the mathematical N parameter and updates the state.
         /// </summary>
-        private void SetCurrentBorderRadius(float targetSlider)
+        private void SetCurrentBorderRadius(float targetSlider, bool useSnap = true)
         {
-            float nextSlider = math.clamp(targetSlider, 0f, 10f);
+            float raw = math.clamp(targetSlider, 1f, 10f);
+            float nextSlider = raw;
+
+            if (useSnap)
+            {
+                float dist = math.abs(raw - BorderRadiusSnapTarget);
+
+                if (m_BorderRadiusSnapState == BorderRadiusSnapState.Armed &&
+                    dist <= BorderRadiusSnapThreshold)
+                {
+                    m_BorderRadiusSnapState = BorderRadiusSnapState.Locked;
+                    nextSlider = BorderRadiusSnapTarget;
+                }
+                else if (m_BorderRadiusSnapState == BorderRadiusSnapState.Locked)
+                {
+                    if (dist <= BorderRadiusSnapThreshold)
+                    {
+                        nextSlider = BorderRadiusSnapTarget;
+                    }
+                    else
+                    {
+                        m_BorderRadiusSnapState = BorderRadiusSnapState.Armed;
+                        nextSlider = raw;
+                    }
+                }
+                else if (m_BorderRadiusSnapState == BorderRadiusSnapState.Disarmed)
+                {
+                    nextSlider = raw;
+
+                    if (dist > BorderRadiusSnapThreshold)
+                        m_BorderRadiusSnapState = BorderRadiusSnapState.Armed;
+                }
+            }
 
             if (math.abs(m_BorderRadius - nextSlider) < 0.01f)
                 return;
 
             m_BorderRadius = nextSlider;
-
             QueuePreviewRebuild();
         }
         #endregion
@@ -238,12 +331,7 @@ namespace MertsToolBox.Systems
             if (buildRx < m_CurrentRoadWidth || buildRy < m_CurrentRoadWidth) return false;
             costElevation = GetCurrentNetToolElevation();
 
-            subNets = BuildAdaptiveShapeSubNets(
-                    roadPrefab,
-                    buildRx,
-                    buildRy,
-                    costElevation
-                );
+            subNets = BuildAdaptiveShapeSubNets(roadPrefab, buildRx, buildRy, costElevation );
 
             widthCells = (int)math.ceil(m_CurrentSessionWidth / 8f);
             depthCells = (int)math.ceil(m_CurrentSessionLength / 8f);
@@ -253,56 +341,73 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Builds the bezier curves representing the super ellipse's sub-networks based on the Lamé curve equation.
         /// </summary>
-        private ObjectSubNetInfo[] BuildAdaptiveShapeSubNets(
-            NetPrefab roadPrefab,
-            float rx,
-            float ry,
-            float elevation)
+        private ObjectSubNetInfo[] BuildAdaptiveShapeSubNets(NetPrefab roadPrefab,float rx,float ry,float elevation)
         {
-            const float Kappa = 0.55228475f;
+            
             const float MinLineLength = 0.5f;
 
             float shortest = math.min(rx, ry);
 
             // Empirical engine-safe minimum:
-            // Test data suggests that the smallest reliable corner radius is roughly
-            // 52–55% of the selected road width, regardless of the overall shape size.
-            float safeMinRadius = m_CurrentRoadWidth * 0.55f;
+            float safeMinRadius = m_CurrentRoadWidth * Kappa;
 
             // Convert real radius into normalized radius relative to the shortest build side.
             float safeMin01 = math.saturate(safeMinRadius / math.max(0.1f, shortest));
 
-            float ui = math.clamp(m_BorderRadius, 0f, 10f);
+            // UI artık 1..10
+            float ui = math.clamp(m_BorderRadius, 1f, 10f);
 
             float cornerX;
             float cornerY;
 
+            float SmoothStep01(float x)
+            {
+                x = math.saturate(x);
+                return x * x * (3f - 2f * x);
+            }
+
             if (ui <= 8f)
             {
-                // 0..8 = safe rounded rectangle -> capsule/pill
-                float t = ui / 8f;
-                float r = math.lerp(shortest * safeMin01, shortest, t);
+                // 1..8 = safe rounded rectangle -> capsule/pill
+                //
+                // Important:
+                // Linear radius growth makes the short straight edges too short too early.
+                // The game then stops treating them as proper zoning-generating straight roads.
+                // Squared easing keeps the straight sections longer until the shape is close to pill.
+                float rawT = math.saturate((ui - 1f) / 7f);
+                float t = rawT * rawT;
+
+                float safeRadius = shortest * safeMin01;
+                float r = math.lerp(safeRadius, shortest, t);
 
                 cornerX = r;
                 cornerY = r;
+
+                // Preserve enough straight edge for zoning until we approach full pill.
+                // From UI 7 -> 8 this protection fades out, so 8 can still become a true pill.
+                float pillFade = SmoothStep01((ui - 7f) / 1f);
+                float minStraightLength = m_CurrentRoadWidth * 1.25f * (1f - pillFade);
+
+                if (minStraightLength > 0.01f)
+                {
+                    float maxCornerXForStraight = rx - minStraightLength * 0.5f;
+                    float maxCornerYForStraight = ry - minStraightLength * 0.5f;
+
+                    // Do not push below the empirical safe radius.
+                    if (maxCornerXForStraight > safeRadius)
+                        cornerX = math.min(cornerX, maxCornerXForStraight);
+
+                    if (maxCornerYForStraight > safeRadius)
+                        cornerY = math.min(cornerY, maxCornerYForStraight);
+                }
             }
             else
             {
                 // 8..10 = capsule/pill -> ellipse
-                float t = (ui - 8f) / 2f;
+                float blend = math.saturate((ui - 8f) / 2f);
 
-                if (rx <= ry)
-                {
-                    // vertical pill -> vertical ellipse
-                    cornerX = rx;
-                    cornerY = math.lerp(rx, ry, t);
-                }
-                else
-                {
-                    // horizontal pill -> horizontal ellipse
-                    cornerX = math.lerp(ry, rx, t);
-                    cornerY = ry;
-                }
+                cornerX = math.lerp(shortest, rx, blend);
+                cornerY = math.lerp(shortest, ry, blend);
             }
 
             cornerX = math.clamp(cornerX, 0.01f, rx);
@@ -339,8 +444,6 @@ namespace MertsToolBox.Systems
             {
                 curves.Add(new Bezier4x3(a, b, c, d));
             }
-
-            // Clockwise path.
 
             // TOP
             AddLine(
@@ -397,7 +500,7 @@ namespace MertsToolBox.Systems
                 new float3(innerRight + cornerX * Kappa, elevation, top),
                 new float3(innerRight, elevation, top)
             );
-
+            RotateCurveStart(curves, 2);
             ObjectSubNetInfo[] result = new ObjectSubNetInfo[curves.Count];
 
             for (int i = 0; i < curves.Count; i++)
@@ -413,24 +516,27 @@ namespace MertsToolBox.Systems
 
             return result;
         }
-
-        /// <summary>
-        /// Applies a slight adjustment to properly close the curve loop and align tangents.
-        /// </summary>
-        private void ApplyClosureNudge(ObjectSubNetInfo[] subNets)
+        private void RotateCurveStart(List<Bezier4x3> curves, int startIndex)
         {
-            if (subNets == null || subNets.Length < 2) return;
+            if (curves == null || curves.Count == 0)
+                return;
 
-            ref ObjectSubNetInfo firstInfo = ref subNets[0];
-            ref ObjectSubNetInfo lastInfo = ref subNets[^1];
+            startIndex %= curves.Count;
+            if (startIndex < 0)
+                startIndex += curves.Count;
 
-            float3 lockedStart = firstInfo.m_BezierCurve.a;
-            float dynamicTangentLength = math.distance(lockedStart, firstInfo.m_BezierCurve.b);
-            float3 startDir = math.normalizesafe(firstInfo.m_BezierCurve.b - lockedStart, new float3(1, 0, 0));
+            if (startIndex == 0)
+                return;
 
-            lastInfo.m_BezierCurve.d = lockedStart;
-            lastInfo.m_BezierCurve.c = lockedStart - startDir * dynamicTangentLength;
-            firstInfo.m_BezierCurve.b = lockedStart + startDir * dynamicTangentLength;
+            List<Bezier4x3> rotated = new();
+
+            for (int i = 0; i < curves.Count; i++)
+            {
+                rotated.Add(curves[(startIndex + i) % curves.Count]);
+            }
+
+            curves.Clear();
+            curves.AddRange(rotated);
         }
         #endregion
     }

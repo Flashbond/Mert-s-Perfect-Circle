@@ -78,7 +78,7 @@ export const SoftBlockPanelSection = () => {
 
     return (
         <div
-            className={`superellipse-panel-container`}
+            className={`softblock-panel-container`}
             onMouseDown={(e) => { e.stopPropagation(); }}
             onContextMenu={(e) => { e.stopPropagation(); }}
             style={{ display: "flex", flexDirection: "column" }}
@@ -147,16 +147,22 @@ export const SoftBlockPanelSection = () => {
 
             {/* N VALUE (CURVATURE) ROW */}
             <VanillaResolver.instance.Section title="Border Radius">
-                    <MertSlider
-                        min={0}
-                        max={10}
-                        step={0.1}
-                        value={borderRadius}
-                        onChange={(newVal) => {
-                            trigger("MertsToolBox", "SetBorderRadius", newVal);
-                        }}
-                        formatValue={(v) => v.toFixed(1)}
-                    />
+                <MertSlider
+                    min={1}
+                    max={10}
+                    step={0.1}
+                    value={borderRadius}
+                    onDragStart={() => {
+                        trigger("MertsToolBox", "BeginBorderRadiusDrag");
+                    }}
+                    onDragEnd={() => {
+                        trigger("MertsToolBox", "EndBorderRadiusDrag");
+                    }}
+                    onChange={(newVal) => {
+                        trigger("MertsToolBox", "SetBorderRadius", newVal);
+                    }}
+                    formatValue={(v) => v.toFixed(1)}
+                />
             </VanillaResolver.instance.Section>
 
             {/* ELEVATION ROW */}

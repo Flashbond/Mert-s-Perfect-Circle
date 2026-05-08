@@ -102,7 +102,6 @@ export const CirclePanelSection = () => {
                     values={diameterStepValues}
                     selectedValue={diameterStepValue}
                     onSelect={(val) => {
-                        console.log("Gelen Val:", val),
                         trigger("MertsToolBox", "CircleDiameterStep", val);
                     }}
                 />

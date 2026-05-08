@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import styles from './MertSlider.module.scss';
 import { trigger } from 'cs2/api';
+import { VanillaResolver } from "./VanilliaResolver";
 
 interface MertSliderProps {
     value: number;
@@ -9,10 +10,12 @@ interface MertSliderProps {
     step?: number;
     onChange: (val: number) => void;
     formatValue?: (val: number) => string;
+    onDragStart?: () => void;
+    onDragEnd?: () => void;
 }
 
 export const MertSlider: React.FC<MertSliderProps> = ({
-    value, min, max, step = 1, onChange, formatValue
+    value, min, max, step = 1, onChange, formatValue, onDragStart, onDragEnd
 }) => {
     const trackRef = useRef<HTMLDivElement>(null);
     const lastSentValueRef = useRef<number | null>(null);
@@ -42,10 +45,13 @@ export const MertSlider: React.FC<MertSliderProps> = ({
     const handleMouseDown = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
+
         trigger("MertsToolBox", "UiInteracted");
-        
+
+        onDragStart?.();
+
         setIsDragging(true);
-        sendChange(calculateValueFromMouse(e.clientX));
+        onChange(calculateValueFromMouse(e.clientX));
     };
 
     useEffect(() => {
@@ -57,6 +63,7 @@ export const MertSlider: React.FC<MertSliderProps> = ({
 
         const handleMouseUp = () => {
             setIsDragging(false);
+            onDragEnd?.();
         };
 
         window.addEventListener('mousemove', handleMouseMove);
@@ -82,7 +89,7 @@ export const MertSlider: React.FC<MertSliderProps> = ({
                     <div className={styles.thumb} style={{ left: `${fillPercentage}%` }}></div>
                 </div>
             </div>
-            <div className={styles.valueDisplay}>
+            <div className={`${styles.valueDisplay} ${VanillaResolver.instance.mouseToolOptionsTheme["number-field"]}`}>
                 {formatValue ? formatValue(value) : value.toString()}
             </div>
         </div>

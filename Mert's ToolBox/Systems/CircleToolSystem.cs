@@ -159,8 +159,7 @@ namespace MertsToolBox.Systems
             int segments = CalculateAutoSegments(buildR);
             subNets = BuildCircleSubNets(roadPrefab, buildR, segments, costElevation);
 
-            widthCells = (int)math.ceil(m_CurrentSessionDiameter / 8f);
-            depthCells = (int)math.ceil(m_CurrentSessionDiameter / 8f);
+            widthCells = depthCells = (int)math.ceil(m_CurrentSessionDiameter / 8f);
 
             return true;
         }
@@ -208,25 +207,7 @@ namespace MertsToolBox.Systems
                 };
             }
 
-            ApplyClosureNudge(result, tangentLength);
             return result;
-        }
-
-        /// <summary>
-        /// Applies a slight adjustment to properly close the curve loop.
-        /// </summary>
-        private void ApplyClosureNudge(ObjectSubNetInfo[] subNets, float tangentLength)
-        {
-            if (subNets == null || subNets.Length < 2) return;
-            ref ObjectSubNetInfo firstInfo = ref subNets[0];
-            ref ObjectSubNetInfo lastInfo = ref subNets[^1];
-
-            float3 lockedStart = firstInfo.m_BezierCurve.a;
-            float3 startDir = math.normalizesafe(firstInfo.m_BezierCurve.b - lockedStart, new float3(1, 0, 0));
-
-            lastInfo.m_BezierCurve.d = lockedStart;
-            lastInfo.m_BezierCurve.c = lockedStart - startDir * tangentLength;
-            firstInfo.m_BezierCurve.b = lockedStart + startDir * tangentLength;
         }
         #endregion
     }
