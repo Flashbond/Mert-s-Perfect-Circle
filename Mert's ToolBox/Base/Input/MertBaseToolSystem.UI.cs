@@ -29,6 +29,8 @@ namespace MertsToolBox
                 Game.Prefabs.NetPrefab currentRoad = TryGetCurrentSelectedRoadPrefab();
                 m_CurrentRoadWidth = currentRoad != null ? GetCachedRoadWidth(currentRoad) : 8f;
 
+                ClearUndoHistory();
+
                 OnToolActivated();
                 PrimeAndShowPreviewOnEnable();
             }
@@ -38,7 +40,7 @@ namespace MertsToolBox
                 ExecuteGracefulExit(ToolExitMode.UserSelectionClose);
             }
         }
-
+      
         /// <summary>
         /// Requests the active tool to disable and executes a graceful exit using the specified mode.
         /// </summary>

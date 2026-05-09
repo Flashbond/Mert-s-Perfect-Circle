@@ -1,4 +1,5 @@
 ﻿using Colossal.IO.AssetDatabase;
+using Game.Input;
 using Game.Modding;
 using Game.Settings;
 using System;
@@ -6,22 +7,39 @@ using System;
 namespace MertsToolBox.Settings
 {
     [FileLocation("ModsSettings/MertsToolBox/MertsToolBox")]
+    [SettingsUIKeyboardAction(OpenCircleTool, ActionType.Button, usages: new string[] { "Tool" })]
+    [SettingsUIKeyboardAction(OpenHelixTool, ActionType.Button, usages: new string[] { "Tool" })]
+    [SettingsUIKeyboardAction(OpenSoftBlockTool, ActionType.Button, usages: new string[] { "Tool" })]
+    [SettingsUIKeyboardAction(OpenGridTool, ActionType.Button, usages: new string[] { "Tool" })]
+    [SettingsUIKeyboardAction(UndoToolParameter, ActionType.Button, usages: new string[] { "Tool" })]
+    [SettingsUIKeyboardAction(RedoToolParameter, ActionType.Button, usages: new string[] { "Tool" })]
     [SettingsUITabOrder(
+        TAB_GENERAL,
         TAB_CIRCLE,
         TAB_HELIX,
         TAB_SOFTBLOCK,
         TAB_GRID
     )]
-    [SettingsUIGroupOrder(GROUP_DEFAULTS, GROUP_CONTROLS)]
+    [SettingsUIGroupOrder(GROUP_KEYBINDS, GROUP_DEFAULTS, GROUP_CONTROLS)]
     public class ToolBoxSettings : ModSetting
     {
-        public const string TAB_CIRCLE = "Circle";
-        public const string TAB_HELIX = "Helix";
+        public const string TAB_GENERAL = "General";
+       
+        public const string TAB_CIRCLE = "Perfect Circle";
+        public const string TAB_HELIX = "Procedural Helix";
         public const string TAB_SOFTBLOCK = "Soft Block";
-        public const string TAB_GRID = "Grid";
+        public const string TAB_GRID = "Smart Grid";
 
+        public const string GROUP_KEYBINDS = "Key Bindings";
         public const string GROUP_DEFAULTS = "Defaults";
         public const string GROUP_CONTROLS = "Controls";
+
+        public const string OpenCircleTool = "OpenCircleTool";
+        public const string OpenHelixTool = "OpenHelixTool";
+        public const string OpenSoftBlockTool = "OpenSoftBlockTool";
+        public const string OpenGridTool = "OpenGridTool";
+        public const string UndoToolParameter = "UndoToolParameter";
+        public const string RedoToolParameter = "RedoToolParameter";
 
         private int m_DefaultCircleDiameter = 96;
         private bool m_UseCtrlWheelForCircleDiameterAdjustment = false;
@@ -47,6 +65,32 @@ namespace MertsToolBox.Settings
         {
             SetDefaults();
         }
+        // -------------------------
+        // General
+        // -------------------------
+        [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.C, OpenCircleTool, ctrl: true)]
+        public ProxyBinding OpenCircleToolKey { get; set; }
+
+        [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.H, OpenHelixTool, ctrl: true)]
+        public ProxyBinding OpenHelixToolKey { get; set; }
+
+        [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.S, OpenSoftBlockTool, ctrl: true)]
+        public ProxyBinding OpenSoftBlockToolKey { get; set; }
+
+        [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.G, OpenGridTool, ctrl: true)]
+        public ProxyBinding OpenGridToolKey { get; set; }
+
+        [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.Z, UndoToolParameter, ctrl: true)]
+        public ProxyBinding UndoToolParameterKey { get; set; }
+
+        [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.Y, RedoToolParameter, ctrl: true)]
+        public ProxyBinding RedoToolParameterKey { get; set; }
 
         // -------------------------
         // Circle

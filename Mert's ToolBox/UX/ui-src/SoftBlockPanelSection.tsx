@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { bindValue, trigger, useValue } from "cs2/api";
 import { MertSlider } from "./utils/MertSlider";
-import { formatMeters, formatSmart } from "./utils/Formatters";
+import { formatMeters } from "./utils/Formatters";
 import { VanillaResolver } from "./utils/VanilliaResolver";
-import { parseActiveTool, ActiveTool } from "./utils/ActiveTool";
+import { parseActiveTool } from "./utils/ActiveTool";
+import { MertListBox } from './utils/MertListBox';
+import saveIcon from "./Icons/Save.svg";
+import loadIcon from "./Icons/Load.svg";
 
 // --- GLOBAL BINDINGS (C# TO UI) ---
 const activeToolMode$ = bindValue<string>("MertsToolBox", "ActiveTool", "None|None");
@@ -27,6 +30,8 @@ const isSnapGeometryActive$ = bindValue<boolean>("MertsToolBox", "IsSnapGeometry
 const isSnapNetSideActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetSideActive");
 const isSnapNetAreaActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetAreaActive");
 
+const presetList$ = bindValue<string>("MertsToolBox", "PresetList", "");
+
 // --- COMPONENT DEFINITION ---
 export const SoftBlockPanelSection = () => {
 
@@ -38,6 +43,8 @@ export const SoftBlockPanelSection = () => {
     const rawShow: boolean = isToolBoxAllowed && activeTool.id === "SoftBlock";
     const [delayedShow, setDelayedShow] = useState(false);
 
+    const [presetPanelOpen, setPresetPanelOpen] = useState(false);
+
     useEffect(() => {
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -46,6 +53,7 @@ export const SoftBlockPanelSection = () => {
         } else {
             timeoutId = setTimeout(() => {
                 setDelayedShow(false);
+                setPresetPanelOpen(false);
             }, 150);
         }
 
@@ -72,6 +80,13 @@ export const SoftBlockPanelSection = () => {
     const isSnapGeometryActive = useValue(isSnapGeometryActive$) as boolean;
     const isSnapNetSideActive = useValue(isSnapNetSideActive$) as boolean;
     const isSnapNetAreaActive = useValue(isSnapNetAreaActive$) as boolean;
+
+    const presetListRaw = useValue(presetList$) as string;
+
+    const presetList = (presetListRaw || "")
+        .split(";")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
 
     // --- RENDER ---
     if (!delayedShow) return null;
@@ -145,7 +160,7 @@ export const SoftBlockPanelSection = () => {
                 />
             </VanillaResolver.instance.Section>
 
-            {/* N VALUE (CURVATURE) ROW */}
+            {/* BORDER RADIUS ROW */}
             <VanillaResolver.instance.Section title="Border Radius">
                 <MertSlider
                     min={1}
@@ -205,7 +220,7 @@ export const SoftBlockPanelSection = () => {
                 />
 
                 <VanillaResolver.instance.ToolButton
-                    src="Media/Tools/Snap Options/NetSide.svg"
+                    src="Media/Tools/Snap Options/NetSide.svg" 
                     selected={isSnapNetSideActive}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
                     onSelect={() => trigger("MertsToolBox", "SoftBlockToggleSnap", "NetSide")}
@@ -220,6 +235,44 @@ export const SoftBlockPanelSection = () => {
                     tooltip={`Net Area`}
                 />
             </VanillaResolver.instance.Section>
+
+            {/* PRESET ROW */}
+            <VanillaResolver.instance.Section title="Preset">
+                <VanillaResolver.instance.ToolButton
+                    src={saveIcon}
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    onSelect={() => trigger("MertsToolBox", "SavePreset", activeTool.id)}
+                    tooltip={`Save Preset`}
+                />
+
+                <VanillaResolver.instance.ToolButton
+                    src={loadIcon}
+                    selected={presetPanelOpen}
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    onSelect={() => {
+                        setPresetPanelOpen(!presetPanelOpen);
+                        if (!presetPanelOpen) {
+                            trigger("MertsToolBox", "RefreshPresetList");
+                        }
+                    }}
+                    tooltip={`Load Preset`}
+                />
+            </VanillaResolver.instance.Section>
+
+            {/* MERT LISTBOX (KLASİK) */}
+            <div style={{ width: "100%", padding: "0 12px", boxSizing: "border-box" }}>
+                <MertListBox
+                    items={presetList}
+                    isOpen={presetPanelOpen}
+                    onSelect={(presetName) => {
+                        trigger("MertsToolBox", "LoadPreset", presetName);
+                        setPresetPanelOpen(false);
+                    }}
+                    onDelete={(presetName) => {
+                        trigger("MertsToolBox", "DeletePreset", presetName);
+                    }}
+                />
+            </div>
         </div>
     );
 };

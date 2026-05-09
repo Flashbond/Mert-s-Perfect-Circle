@@ -745,7 +745,7 @@ namespace MertsToolBox
                 }
 
                 ModRuntime.TrySetField(m_ObjectToolSystem, "m_SelectedPrefab", null);
-                ModRuntime.TrySetField(m_ObjectToolSystem, "m_Prefab", null);
+              
                 bool setOk = m_ObjectToolSystem.TrySetPrefab(stamp);
                 if (!setOk)
                     return;

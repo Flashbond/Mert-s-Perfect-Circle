@@ -26,6 +26,7 @@ namespace MertsToolBox.Core
             settings = new ToolBoxSettings(this);
 
             settings.RegisterInOptionsUI();
+            settings.RegisterKeyBindings();
 
             AssetDatabase.global.LoadSettings(nameof(Settings), settings, new ToolBoxSettings(this));
 

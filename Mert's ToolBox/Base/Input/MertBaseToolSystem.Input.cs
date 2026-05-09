@@ -27,7 +27,7 @@ namespace MertsToolBox
         private InputAction m_ShadowElevationAction;
         private bool m_SourceElevationWasEnabled;
         private bool m_VanillaElevationSuppressed;
-        protected static readonly Dictionary<Entity, MertRoadProfile> s_RoadProfileCache = new();
+        private static readonly Dictionary<Entity, MertRoadProfile> s_RoadProfileCache = new();
 
         private static FieldInfo s_BindingField;
         private static PropertyInfo s_ValueProperty;
@@ -38,7 +38,20 @@ namespace MertsToolBox
         {
             10f, 5f, 2.5f, 1.25f
         };
+        private enum MertNetKind
+        {
+            Unknown,
+            Road,
+            Track,
+            PierPedestrian
+        }
 
+        private struct MertRoadProfile
+        {
+            public bool IsReliable;
+            public float Width;
+            public MertNetKind Kind;
+        }
         public float[] GetElevationStepArray()
         {
             return s_ElevationStepValues;
@@ -303,10 +316,8 @@ namespace MertsToolBox
                 string internalName = netPrefab.name?.ToLowerInvariant() ?? "";
                 if (internalName.Contains("quay") ||
                     internalName.Contains("retaining") ||
-                    internalName.Contains("pier") ||
                     internalName.Contains("dam") ||
-                    internalName.Contains("bridge") ||
-                    internalName.Contains("pedestrian"))
+                    internalName.Contains("bridge"))
                 {
                     hasInvalidDNA = true;
                     matchedDNAInfo += $"[Name={internalName}] ";
@@ -328,7 +339,6 @@ namespace MertsToolBox
 
                                     if (pieceName.Contains("quay") ||
                                         pieceName.Contains("retaining") ||
-                                        pieceName.Contains("pier") ||
                                         pieceName.Contains("dam") ||
                                         pieceName.Contains("bridge") ||
                                         pieceName.Contains("suspension") ||
@@ -346,6 +356,29 @@ namespace MertsToolBox
                 bool isRoad = netPrefab is RoadPrefab;
                 bool isTrack = netPrefab is TrackPrefab;
 
+                bool isTransitRoad =
+                    internalName.Contains("transport") ||
+                    internalName.Contains("bus");
+
+                bool isPierPedestrian =
+                    internalName.Contains("pier") ||
+                    internalName.Contains("pedestrian");
+
+                profile.Kind = MertNetKind.Unknown;
+
+                if (isPierPedestrian)
+                {
+                    profile.Kind = MertNetKind.PierPedestrian;
+                }
+                else if (isTrack)
+                {
+                    profile.Kind = MertNetKind.Track;
+                }
+                else if (isRoad)
+                {
+                    profile.Kind = MertNetKind.Road;
+                }
+
                 bool isPlaceableByUser = netPrefab.Has<PlaceableNet>();
                 bool hasRoadData = isRoad && EntityManager.HasComponent<Game.Prefabs.RoadData>(prefabEntity);
 
@@ -353,35 +386,30 @@ namespace MertsToolBox
 
                 if (!isPlaceableByUser)
                 {
-                    rejectionReason = "Not Placeable (No UIObject)";
+                    rejectionReason = "Not Placeable";
                 }
-                else if (!isRoad && !isTrack)
+                else if (!isRoad && !isTrack && !isPierPedestrian)
                 {
-                    rejectionReason = "Invalid Net Type (Pathway, Pipe, Wire, etc.)";
+                    rejectionReason = "Invalid Net Type";
                 }
-                else if (profile.Width < 7.9f)
+                else if (
+                    profile.Kind == MertNetKind.Road &&
+                    !isTransitRoad &&
+                    !isPierPedestrian &&
+                    profile.Width < 7.9f)
                 {
-                    rejectionReason = $"Too Narrow (Width: {profile.Width} < 8)";
+                    rejectionReason = $"Too Narrow Road (Width: {profile.Width} < 8)";
                 }
-                else if (hasInvalidDNA)
+                else if (hasInvalidDNA && !isPierPedestrian)
                 {
                     rejectionReason = $"Invalid DNA Found: {matchedDNAInfo}";
                 }
-                else if (isRoad && !hasRoadData)
+                else if (isRoad && !hasRoadData && !isPierPedestrian)
                 {
                     rejectionReason = "Missing RoadData Component";
                 }
 
-
-                if (rejectionReason != "")
-                {
-                    profile.IsReliable = false;
-                }
-                else
-                {
-                    profile.IsReliable = true;
-                    string typeLabel = isRoad ? "ROAD" : "TRACK";
-                }
+                profile.IsReliable = rejectionReason == "";
 
                 s_RoadProfileCache[prefabEntity] = profile;
             }
@@ -469,7 +497,7 @@ namespace MertsToolBox
         protected virtual void ExecuteGracefulExit(ToolExitMode exitMode)
         {
             RestoreVanillaElevation();
-
+            ClearUndoHistory();
             if (MertToolState.ActiveTool == this)
                 MertToolState.ActiveTool = null;
 
@@ -648,6 +676,24 @@ namespace MertsToolBox
                 return false;
             }
             return selectedAssetEntity != Entity.Null;
+        }
+        protected bool IsTrackPrefab(PrefabBase prefab)
+        {
+            if (prefab is not NetPrefab netPrefab)
+                return false;
+
+            return netPrefab is TrackPrefab;
+        }
+
+        protected bool IsPierPedestrianPrefab(PrefabBase prefab)
+        {
+            if (prefab is not NetPrefab netPrefab)
+                return false;
+
+            string name = netPrefab.name?.ToLowerInvariant() ?? "";
+
+            return name.Contains("pier") ||
+                   name.Contains("pedestrian");
         }
         #endregion
 

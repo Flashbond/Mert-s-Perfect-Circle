@@ -20,7 +20,7 @@ namespace MertsToolBox.Management.Patches
                 return;
             if (!MertToolbarHandoffMemory.IsAnyCustomToolOpen())
                 return;
-            if (!MertToolbarHandoffMemory.IsRoadsCategory(assetCategory))
+            if (!MertToolbarHandoffMemory.IsSupportedNetCategory(assetCategory))
                 return;
 
             MertToolState.LiveUiCategory = assetCategory;
@@ -59,7 +59,7 @@ namespace MertsToolBox.Management.Patches
                 return;
             if (assetCategoryEntity != MertToolState.PendingRestoreCategory)
                 return;
-            if (!MertToolbarHandoffMemory.IsRoadsCategory(assetCategoryEntity))
+            if (!MertToolbarHandoffMemory.IsSupportedNetCategory(assetCategoryEntity))
                 return;
 
             bool incomingIsNull = assetEntity == Entity.Null;
@@ -107,7 +107,7 @@ namespace MertsToolBox.Management.Patches
             if (!MertToolbarHandoffMemory.IsAnyCustomToolOpen())
                 return;
 
-            if (!MertToolbarHandoffMemory.IsRoadNetPrefab(assetEntity, out var netPrefab))
+            if (!MertToolbarHandoffMemory.IsSupportedNetPrefab(assetEntity, out var netPrefab))
                 return;
 
             MertToolState.LiveUiRoadPrefab = netPrefab;

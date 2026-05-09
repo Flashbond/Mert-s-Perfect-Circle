@@ -1,9 +1,9 @@
 ﻿<Publish>
 	<!--Id must be set in order to update existed mod. it is not required for publishing mod for the first time-->
-	<ModId Value="138174" />
+	<ModId Value="" />
 
 	<!--Name of the mod to display to players-->
-	<DisplayName Value="Mert's ToolBox[Beta]" />
+	<DisplayName Value="Mert's ToolBox[Test]" />
 
 	<!--Short description of the mod-->
 	<ShortDescription Value="One tool to shape them all." />
@@ -25,10 +25,10 @@
 	<Tag Value="" />
 
 	<!--Link to the forum post where the mod can be discussed-->
-	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/merts-perfect-circle-feedback-suggestions-bug-reports.1911521/" />
+	<ForumLink Value="" />
 
 	<!--Version of the mod-->
-	<ModVersion Value="2.5.2" />
+	<ModVersion Value="2.6.0" />
 
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.5.*" />
@@ -41,13 +41,17 @@
 
 	<!--Change log for new version-->
 	<ChangeLog>
-		* Refurbished UX
+		* Preset System added
+		* Soft Block Tool support for transportation tracks
+		* Procedural Helix Tool support for pedestrian piers
+		* Undo/Redo System added
+		* Keyboard shortcuts added
 	</ChangeLog>
 
 	<!--External links-->
-	<ExternalLink Type="github" Url="https://github.com/Flashbond/Mert-s-ToolBox/" />
+	<ExternalLink Type="github" Url="https://github.com/Flashbond/Mert-s-ToolBox/tree/test" />
 	<!-- İstersen YouTube ekle -->
 
 	<!--Supported values Public, Private, Unlisted-->
-	<AccessLevel Value="Public" />
+	<AccessLevel Value="Private" />
 </Publish>

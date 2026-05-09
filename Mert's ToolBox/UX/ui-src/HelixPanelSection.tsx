@@ -4,6 +4,9 @@ import ccwIcon from "./Icons/CounterCW.svg";
 import { formatMeters, formatSmart } from "./utils/Formatters";
 import { VanillaResolver } from "./utils/VanilliaResolver";
 import { parseActiveTool, ActiveTool } from "./utils/ActiveTool";
+import { MertListBox } from './utils/MertListBox';
+import saveIcon from "./Icons/Save.svg";
+import loadIcon from "./Icons/Load.svg";
 
 // --- GLOBAL BINDINGS (C# TO UI) ---
 const activeToolMode$ = bindValue<string>("MertsToolBox", "ActiveTool", "None|None");
@@ -23,6 +26,8 @@ const helixClearanceStepArray$ = bindValue<number[]>("MertsToolBox", "HelixClear
 
 const helixIsClockwise$ = bindValue<boolean>("MertsToolBox", "HelixIsClockwise");
 
+const presetList$ = bindValue<string>("MertsToolBox", "PresetList", "");
+
 // --- COMPONENT DEFINITION ---
 export const HelixPanelSection = () => {
 
@@ -34,6 +39,8 @@ export const HelixPanelSection = () => {
     const rawShow: boolean = isToolBoxAllowed && activeTool.id === "Helix";
     const [delayedShow, setDelayedShow] = useState(false);
 
+    const [presetPanelOpen, setPresetPanelOpen] = useState(false);
+
     useEffect(() => {
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -42,6 +49,7 @@ export const HelixPanelSection = () => {
         } else {
             timeoutId = setTimeout(() => {
                 setDelayedShow(false);
+                setPresetPanelOpen(false);
             }, 150);
         }
 
@@ -64,6 +72,13 @@ export const HelixPanelSection = () => {
     const clearanceStepValues = useValue(helixClearanceStepArray$) as number[];
 
     const isClockwise = useValue(helixIsClockwise$) as boolean;
+
+    const presetListRaw = useValue(presetList$) as string;
+
+    const presetList = (presetListRaw || "")
+        .split(";")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
 
     // --- RENDER ---
     if (!delayedShow) return null;
@@ -169,6 +184,44 @@ export const HelixPanelSection = () => {
                     onSelect={() => trigger("MertsToolBox", "HelixToggleDirection")}
                 />
             </VanillaResolver.instance.Section>
+
+            {/* PRESET ROW */}
+            <VanillaResolver.instance.Section title="Preset">
+                <VanillaResolver.instance.ToolButton
+                    src={saveIcon}
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    onSelect={() => trigger("MertsToolBox", "SavePreset", activeTool.id)}
+                    tooltip={`Save Preset`}
+                />
+
+                <VanillaResolver.instance.ToolButton
+                    src={loadIcon}
+                    selected={presetPanelOpen}
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    onSelect={() => {
+                        setPresetPanelOpen(!presetPanelOpen);
+                        if (!presetPanelOpen) {
+                            trigger("MertsToolBox", "RefreshPresetList");
+                        }
+                    }}
+                    tooltip={`Load Preset`}
+                />
+            </VanillaResolver.instance.Section>
+
+            {/* MERT LISTBOX (KLASİK) */}
+            <div style={{ width: "100%", padding: "0 12px", boxSizing: "border-box" }}>
+                <MertListBox
+                    items={presetList}
+                    isOpen={presetPanelOpen}
+                    onSelect={(presetName) => {
+                        trigger("MertsToolBox", "LoadPreset", presetName);
+                        setPresetPanelOpen(false);
+                    }}
+                    onDelete={(presetName) => {
+                        trigger("MertsToolBox", "DeletePreset", presetName);
+                    }}
+                />
+            </div>
         </div>
     );
 };

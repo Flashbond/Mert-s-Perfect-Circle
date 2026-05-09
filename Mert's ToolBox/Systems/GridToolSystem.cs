@@ -2,6 +2,7 @@ using Colossal.Entities;
 using Colossal.Mathematics;
 using Game.Prefabs;
 using MertsToolBox.Core;
+using MertsToolBox.Utulities.Preset;
 using System.Collections.Generic;
 using Unity.Mathematics;
 
@@ -39,6 +40,66 @@ namespace MertsToolBox
         protected override bool HandlesOwnElevationInput => true;
         #endregion
 
+        #region Preset System
+        public override MertToolPreset CreatePresetSnapshot()
+        {
+            NetPrefab prefab = TryGetCurrentSelectedRoadPrefab();
+            string prefabName = prefab?.name ?? "UnknownRoad";
+
+            int blockWidth = GetCurrentBlockWidthU();
+            int blockLength = GetCurrentBlockLengthU();
+            int columns = GetCurrentColumns();
+            int rows = GetCurrentRows();
+
+            return new MertToolPreset
+            {
+                ToolId = ToolId,
+                ToolName = ToolName,
+                PrefabName = prefabName,
+                DisplayName = SanitizeFileName(
+                    $"{ToolId}_{prefabName}_Block:{blockWidth}x{blockLength}U_Grid:{columns}x{rows}" +
+                    $"{(m_IsAlternating ? "_Alternating" : "")}" +
+                    $"{(m_IsOrientationLeftBottom ? "_Bottom-Left" : "_Bottom-Right")}"
+                ),
+                Values = new Dictionary<string, float>
+                {
+                    ["BlockWidthU"] = blockWidth,
+                    ["BlockLengthU"] = blockLength,
+                    ["Columns"] = columns,
+                    ["Rows"] = rows,
+                    ["Alternating"] = m_IsAlternating ? 1f : 0f,
+                    ["OrientationLeftBottom"] = m_IsOrientationLeftBottom ? 1f : 0f
+                }
+            };
+        }
+
+        public override void ApplyPresetSnapshot(MertToolPreset preset)
+        {
+            if (preset?.Values == null)
+                return;
+
+            if (preset.Values.TryGetValue("BlockWidthU", out float blockWidth))
+                m_CurrentSessionBlockWidthU = math.clamp((int)blockWidth, 1, 24);
+
+            if (preset.Values.TryGetValue("BlockLengthU", out float blockLength))
+                m_CurrentSessionBlockLengthU = math.clamp((int)blockLength, 1, 24);
+
+            if (preset.Values.TryGetValue("Columns", out float columns))
+                m_CurrentSessionColumns = math.clamp((int)columns, 1, 24);
+
+            if (preset.Values.TryGetValue("Rows", out float rows))
+                m_CurrentSessionRows = math.clamp((int)rows, 1, 24);
+
+            if (preset.Values.TryGetValue("Alternating", out float alternating))
+                m_IsAlternating = alternating >= 0.5f;
+
+            if (preset.Values.TryGetValue("OrientationLeftBottom", out float orientation))
+                m_IsOrientationLeftBottom = orientation >= 0.5f;
+
+            QueuePreviewRebuild();
+        }
+        #endregion
+
         #region Input Queuing % State
         protected override void OnSettingsChanged()
         {
@@ -55,32 +116,62 @@ namespace MertsToolBox
         /// <summary>
         /// Queues a change in the block width based on the given direction.
         /// </summary>
-        public void QueueBlockWidthChange(int direction) => m_PendingBlockWidthChange += direction;
+        public void QueueBlockWidthChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingBlockWidthChange += direction;
+        }
 
         /// <summary>
         /// Queues a change in the block length based on the given direction.
         /// </summary>
-        public void QueueBlockLengthChange(int direction) => m_PendingBlockLengthChange += direction;
+        public void QueueBlockLengthChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingBlockLengthChange += direction;
+        }
 
         /// <summary>
         /// Queues a change in the number of columns based on the given direction.
         /// </summary>
-        public void QueueColsChange(int direction) => m_PendingColsChange += direction;
+        public void QueueColsChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingColsChange += direction;
+        }
 
         /// <summary>
         /// Queues a change in the number of rows based on the given direction.
         /// </summary>
-        public void QueueRowsChange(int direction) => m_PendingRowsChange += direction;
+        public void QueueRowsChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingRowsChange += direction;
+        }
 
         /// <summary>
         /// Queues a toggle action for the alternating one-way road pattern.
         /// </summary>
-        public void QueueToggleAlternating() => m_PendingToggleAlternating = true;
+        public void QueueToggleAlternating()
+        {
+            if (!IsCurrentPrefabValidForOneWayPattern())
+                return;
+
+            RegisterUndoForButton();
+            m_PendingToggleAlternating = true;
+        }
 
         /// <summary>
         /// Queues a toggle action for the one-way road orientation.
         /// </summary>
-        public void QueueToggleOrientation() => m_PendingToggleOrientation = true;
+        public void QueueToggleOrientation()
+        {
+            if (!IsCurrentPrefabValidForOneWayPattern())
+                return;
+
+            RegisterUndoForButton();
+            m_PendingToggleOrientation = true;
+        }
         #endregion
 
         #region Metrics & State Retrieval

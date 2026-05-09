@@ -19,22 +19,46 @@ namespace MertsToolBox.Settings
             return new Dictionary<string, string>
             {
                 { m_Settings.GetSettingsLocaleID(), "Mert's ToolBox" },
-
-                // Tabs
+                // --- Tabs ---
+                { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_GENERAL), "Key Bindings" },
                 { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_CIRCLE), "Perfect Circle" },
                 { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_HELIX), "Procedural Helix" },
                 { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_SOFTBLOCK), "Soft Block" },
                 { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_GRID), "Smart Grid" },
 
-                // Fallback tab keys
-                { "Settings.TAB[Circle]", "Perfect Circle" },
-                { "Settings.TAB[Helix]", "Procedural Helix" },
-                { "Settings.TAB[Block]", "Soft Block" },
-                { "Settings.TAB[Grid]", "Smart Grid" },
+                // --- Groups ---
+                { m_Settings.GetOptionGroupLocaleID(ToolBoxSettings.GROUP_KEYBINDS), "Global Shortcuts" },
+                { m_Settings.GetOptionGroupLocaleID(ToolBoxSettings.GROUP_DEFAULTS), "Defaults" },
+                { m_Settings.GetOptionGroupLocaleID(ToolBoxSettings.GROUP_CONTROLS), "Controls" },
 
-                // Groups
-                { "Settings.SECTION[Defaults]", "Defaults" },
-                { "Settings.SECTION[Controls]", "Controls" },
+                // --- Key Bindings Map (Genel Başlık) ---
+                { m_Settings.GetBindingMapLocaleID(), "Toolbox Controls" },
+
+                // --- Individual Key Bindings ---
+                { m_Settings.GetBindingKeyLocaleID(ToolBoxSettings.OpenCircleTool), "Open Perfect Circle" },
+                { m_Settings.GetBindingKeyLocaleID(ToolBoxSettings.OpenHelixTool), "Open Procedural Helix" },
+                { m_Settings.GetBindingKeyLocaleID(ToolBoxSettings.OpenSoftBlockTool), "Open Soft Block" },
+                { m_Settings.GetBindingKeyLocaleID(ToolBoxSettings.OpenGridTool), "Open Smart Grid" },
+                { m_Settings.GetBindingKeyLocaleID(ToolBoxSettings.UndoToolParameter), "Undo Parameter Change" },
+                { m_Settings.GetBindingKeyLocaleID(ToolBoxSettings.RedoToolParameter), "Redo Parameter Change" },
+
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.OpenCircleToolKey)), "Open Perfect Circle" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.OpenCircleToolKey)), "Toggles the Perfect Circle tool on or off." },
+
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.OpenHelixToolKey)), "Open Procedural Helix" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.OpenHelixToolKey)), "Toggles the Procedural Helix tool on or off." },
+
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.OpenSoftBlockToolKey)), "Open Soft Block" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.OpenSoftBlockToolKey)), "Toggles the Soft Block tool on or off." },
+
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.OpenGridToolKey)), "Open Smart Grid" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.OpenGridToolKey)), "Toggles the Smart Grid tool on or off." },
+
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UndoToolParameterKey)), "Undo Parameter Change" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UndoToolParameterKey)), "Reverts the last adjustment made to the active tool's parameters." },
+
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.RedoToolParameterKey)), "Redo Parameter Change" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.RedoToolParameterKey)), "Restores the previously undone parameter adjustment." },
 
                 // -------------------------
                 // Circle
@@ -67,7 +91,7 @@ namespace MertsToolBox.Settings
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockWidth)), "Sets the starting width used when the Soft Block tool is opened." },
 
                 { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockLength)), "Default Shape Length (m)" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockLength)), "Sets the starting length used when the SSoft Block tool is opened." },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockLength)), "Sets the starting length used when the Soft Block tool is opened." },
 
                 { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForSoftBlockBorderRadius)), "Use Ctrl+Wheel for border radius adjustment" },
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForSoftBlockBorderRadius)), "Allows the Soft Block border radius to be adjusted with Ctrl+Mouse Wheel. Recommended to turn this off if it conflicts with another binding." },

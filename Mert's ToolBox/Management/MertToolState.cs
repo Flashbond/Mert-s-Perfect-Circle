@@ -31,6 +31,7 @@ namespace MertsToolBox.Management
 
         private static readonly Dictionary<Entity, NetPrefab> s_LastRoadPerCategory = new();
         public static MertBaseToolSystem ActiveTool { get; set; } = null;
+
         public static bool IsMertToolActive =>
             ActiveTool != null && ActiveTool.ToolEnabled;
         #endregion

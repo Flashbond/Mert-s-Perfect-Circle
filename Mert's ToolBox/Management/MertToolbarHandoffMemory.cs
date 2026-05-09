@@ -45,21 +45,31 @@ namespace MertsToolBox.Management
         }
 
         /// <summary>
-        /// Checks if the provided category entity corresponds to a roads category.
+        /// Checks if the provided category entity corresponds to a network category.
         /// </summary>
-        public static bool IsRoadsCategory(Entity categoryEntity)
+        public static bool IsSupportedNetCategory(Entity categoryEntity)
         {
             if (!TryResolvePrefab(categoryEntity, out var prefab))
                 return false;
 
             string lower = (prefab?.name ?? string.Empty).ToLowerInvariant();
-            return lower.Contains("road");
+
+            return
+                lower.Contains("road") ||
+                lower.Contains("track") ||
+                lower.Contains("train") ||
+                lower.Contains("subway") ||
+                lower.Contains("tram") ||
+                lower.Contains("transport") ||
+                lower.Contains("bus") ||
+                lower.Contains("pier") ||
+                lower.Contains("pedestrian");
         }
 
         /// <summary>
-        /// Determines if the provided asset entity is a network prefab representing a road.
+        /// Determines if the provided asset entity is a supported network prefab.
         /// </summary>
-        public static bool IsRoadNetPrefab(Entity assetEntity, out NetPrefab netPrefab)
+        public static bool IsSupportedNetPrefab(Entity assetEntity, out NetPrefab netPrefab)
         {
             netPrefab = null;
 

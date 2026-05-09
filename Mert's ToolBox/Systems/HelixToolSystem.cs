@@ -1,6 +1,8 @@
 using Game.Prefabs;
 using MertsToolBox.Core;
 using MertsToolBox.Management;
+using MertsToolBox.Utulities.Preset;
+using System.Collections.Generic;
 using Unity.Mathematics;
 
 namespace MertsToolBox.Systems
@@ -35,6 +37,56 @@ namespace MertsToolBox.Systems
         public override string ToolId => "Helix";
         public override string ToolName => "Procedural Helix";
 
+        #region Preset System
+        public override MertToolPreset CreatePresetSnapshot()
+        {
+            NetPrefab prefab = TryGetCurrentSelectedRoadPrefab();
+            string prefabName = prefab?.name ?? "UnknownRoad";
+
+            int diameter = GetCurrentDiameter();
+            float turns = GetCurrentTurns();
+            float clearance = GetCurrentClearance();
+
+            return new MertToolPreset
+            {
+                ToolId = ToolId,
+                ToolName = ToolName,
+                PrefabName = prefabName,
+
+                DisplayName = SanitizeFileName(
+                    $"{ToolId}_{prefabName}_Diameter:{diameter}m_Turn:{turns:0.0}_Clearance:{clearance:0.0}m_{(m_IsClockwise ? "CW" : "CCW")}"
+                ),
+
+                Values = new Dictionary<string, float>
+                {
+                    ["Diameter"] = diameter,
+                    ["Turns"] = turns,
+                    ["Clearance"] = clearance,
+                    ["Clockwise"] = m_IsClockwise ? 1f : 0f
+                }
+            };
+        }
+
+        public override void ApplyPresetSnapshot(MertToolPreset preset)
+        {
+            if (preset?.Values == null)
+                return;
+
+            if (preset.Values.TryGetValue("Diameter", out float diameter))
+                SetCurrentDiameter((int)diameter);
+
+            if (preset.Values.TryGetValue("Turns", out float turns))
+                SetCurrentTurns(turns);
+
+            if (preset.Values.TryGetValue("Clearance", out float clearance))
+                SetCurrentClearance(clearance);
+
+            if (preset.Values.TryGetValue("Clockwise", out float clockwise))
+                m_IsClockwise = clockwise > 0.5f;
+
+            QueuePreviewRebuild();
+        }
+        #endregion
         /// <summary>
         /// Indicates whether this tool allows overlapping placements.
         /// </summary>
@@ -67,7 +119,11 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Queues a change in the diameter based on the given direction.
         /// </summary>
-        public void QueueDiameterChange(int direction) => m_PendingDiameterChange += direction;
+        public void QueueDiameterChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingDiameterChange += direction;
+        }
 
         /// <summary>
         /// Queues a step cycle for the diameter adjustment.
@@ -77,7 +133,11 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Queues a change in the number of turns based on the given direction.
         /// </summary>
-        public void QueueTurnChange(int direction) => m_PendingTurnChange += direction;
+        public void QueueTurnChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingTurnChange += direction;
+        }
 
         /// <summary>
         /// Queues a step cycle for the turn adjustment.
@@ -87,7 +147,11 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Queues a change in the clearance based on the given direction.
         /// </summary>
-        public void QueueClearanceChange(int direction) => m_PendingClearanceChange += direction;
+        public void QueueClearanceChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingClearanceChange += direction;
+        }
 
         /// <summary>
         /// Queues a step cycle for the clearance adjustment.
@@ -125,12 +189,14 @@ namespace MertsToolBox.Systems
         /// Retrieves the current session clearance, applying default settings if uninitialized.
         /// </summary>
         public float GetCurrentClearance() { if (m_CurrentSessionClearance < 0) m_CurrentSessionClearance = Mod.settings != null ? Mod.settings.DefaultClearance : 8f; return m_CurrentSessionClearance; }
-        
+
         /// <summary>
         /// Sets turn direction.
         /// </summary>
         public void QueueToggleDirection()
         {
+            RegisterUndoForButton();
+
             m_IsClockwise = !m_IsClockwise;
             QueuePreviewRebuild();
         }
@@ -139,12 +205,19 @@ namespace MertsToolBox.Systems
         /// </summary>
         private int GetMinimumAllowedDiameter()
         {
-            float collisionMin = m_CurrentRoadWidth * 3f;
+            bool isPierLike = IsCurrentPierLikePrefab();
+
+            float collisionMin = m_CurrentRoadWidth * (isPierLike ? 2f : 3f);
 
             float clearance = GetCurrentClearance();
+
             float slopeMin = (clearance / (math.PI * 0.25f)) + m_CurrentRoadWidth;
 
             return (int)math.ceil(math.max(collisionMin, slopeMin));
+        }
+        private float GetMinimumAllowedClearance()
+        {
+            return IsCurrentPierLikePrefab() ? 2.5f : 8.0f;
         }
         #endregion
 
@@ -205,7 +278,11 @@ namespace MertsToolBox.Systems
                 UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.ctrlKey.isPressed)
             {
                 int scrollDir = GetScrollDirection();
-                if (scrollDir != 0) SetCurrentTurns(GetCurrentTurns() + (scrollDir * 0.125f));
+                if(scrollDir != 0)
+{
+                    RegisterUndoForWheel();
+                    SetCurrentTurns(GetCurrentTurns() + (scrollDir * 0.125f));
+                }
             }
         }
 
@@ -270,8 +347,10 @@ namespace MertsToolBox.Systems
         /// </summary>
         private void SetCurrentClearance(float clearance)
         {
-            float clamped = math.clamp(clearance, 8.0f, 15f);
-            if (math.abs(m_CurrentSessionClearance - clamped) < 0.001f) return;
+            float clamped = math.clamp(clearance, GetMinimumAllowedClearance(), 15f);
+
+            if (math.abs(m_CurrentSessionClearance - clamped) < 0.001f)
+                return;
 
             m_CurrentSessionClearance = clamped;
             QueuePreviewRebuild();

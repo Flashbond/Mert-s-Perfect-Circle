@@ -71,20 +71,7 @@ const ToolBoxModeRow = () => {
 
     const toolsJson = useValue(toolList$) as string;
     const toolDefs = buildToolDefs(toolsJson);
-    function hideForeignMouseToolRowsOnce() {
-        const root = document.querySelector(".merts-toolbox-root") as HTMLElement | null;
-        if (!root) return;
 
-        const parent = root.parentElement;
-        if (!parent) return;
-
-        Array.from(parent.children).forEach((child) => {
-            if (child === root) return;
-
-            const el = child as HTMLElement;
-            el.style.display = "none";
-        });
-    }
     return (
         <VanillaResolver.instance.Section title="Mert's ToolBox">
             {toolDefs.map((tool: ToolDef) => {
@@ -130,13 +117,13 @@ const register: ModRegistrar = (moduleRegistry) => {
                     Array.from(root.children).forEach((child) => {
                         const el = child as HTMLElement;
 
-                        const isOurPanel =
+                        const isToolPanel =
                             el.classList.contains("circle-panel-container") ||
                             el.classList.contains("helix-panel-container") ||
                             el.classList.contains("softblock-panel-container") ||
                             el.classList.contains("grid-panel-container");
 
-                        if (isOurPanel) return;
+                        if (isToolPanel) return;
 
                         if (el.className.includes("item_")) {
                             el.style.display = "none";
@@ -152,7 +139,7 @@ const register: ModRegistrar = (moduleRegistry) => {
 
                 const t = setTimeout(() => {
                     hideForeignRows();
-                }, 16);
+                }, 17);
 
                 return () => {
                     cancelAnimationFrame(raf);

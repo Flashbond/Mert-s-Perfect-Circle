@@ -1,0 +1,64 @@
+.listboxWrapper {
+    width: 100%;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    background-color: unquote("rgba(20, 20, 20, 0.85)");
+    border: 1rem solid transparent;
+    border-radius: 4rem;
+    transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out, border-color 0.3s ease, margin-top 0.3s ease;
+
+    &.open {
+        max-height: 180rem;
+        opacity: 1;
+        border-color: unquote("rgba(255, 255, 255, 0.15)");
+        margin-top: 10rem;
+        overflow-y: auto;
+    }
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.listItem {
+    padding: 0;
+    cursor: pointer;
+    border-bottom-width: 1rem;
+    border-bottom-style: solid;
+    border-bottom-color: unquote("rgba(255, 255, 255, 0.05)");
+
+    &:last-child {
+        border-bottom: none;
+    }
+
+    &:hover {
+        background-color: unquote("rgba(255, 255, 255, 0.1)");
+        color: #fff;
+    }
+
+    &.selected {
+        background-color: #0078D7;
+        color: #fff;
+    }
+}
+
+.itemText {
+    padding: 6rem 12rem;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14rem;
+}
+
+.empty {
+    padding: 12rem;
+    font-size: 14rem;
+    color: unquote("rgba(255, 255, 255, 0.8)");
+    text-align: center;
+    font-style: italic;
+}

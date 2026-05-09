@@ -1,6 +1,8 @@
 using Colossal.Mathematics;
 using Game.Prefabs;
 using MertsToolBox.Core;
+using MertsToolBox.Utulities.Preset;
+using System.Collections.Generic;
 using Unity.Mathematics;
 
 namespace MertsToolBox.Systems
@@ -20,6 +22,43 @@ namespace MertsToolBox.Systems
         /// </summary>
         public override string ToolId => "Circle";
         public override string ToolName => "Perfect Circle";
+
+        #region
+        public override MertToolPreset CreatePresetSnapshot()
+        {
+            NetPrefab prefab = TryGetCurrentSelectedRoadPrefab();
+            string prefabName = prefab?.name ?? "UnknownRoad";
+
+            int diameter = GetCurrentDiameter();
+
+            return new MertToolPreset
+            {
+                ToolId = ToolId,
+                ToolName = ToolName,
+                PrefabName = prefabName,
+
+                DisplayName = SanitizeFileName(
+                    $"{ToolId}_{prefabName}_Diameter:{diameter}m"
+                ),
+
+                Values = new Dictionary<string, float>
+                {
+                    ["Diameter"] = diameter
+                }
+            };
+        }
+
+        public override void ApplyPresetSnapshot(MertToolPreset preset)
+        {
+            if (preset?.Values == null)
+                return;
+
+            if (preset.Values.TryGetValue("Diameter", out float diameter))
+                SetCurrentDiameter((int)diameter);
+
+            QueuePreviewRebuild();
+        }
+        #endregion
 
         /// <summary>
         /// Indicates whether this tool requires snap enforcement.
@@ -41,7 +80,12 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Queues a change in the diameter based on the given direction.
         /// </summary>
-        public void QueueDiameterChange(int direction) => m_PendingDiameterChange += direction;
+        public void QueueDiameterChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingDiameterChange += direction;
+        }
+
 
         /// <summary>
         /// Queues a step cycle for the diameter adjustment.
@@ -78,7 +122,7 @@ namespace MertsToolBox.Systems
         /// </summary>
         private int GetMinimumAllowedDiameter()
         {
-            return (int)math.ceil(m_CurrentRoadWidth * 3f);
+            return (int)math.ceil(m_CurrentRoadWidth * 2f);
         }
         #endregion
 
@@ -97,7 +141,6 @@ namespace MertsToolBox.Systems
                     m_DiameterSteps,
                     m_CurrentDiameterStepIndex
                 );
-                ModRuntime.Log($"{m_TargetDiameterStep}");
                 m_TargetDiameterStep = -1;
             }
             if (m_PendingDiameterChange != 0) { ChangeDiameter(m_PendingDiameterChange); m_PendingDiameterChange = 0; }
@@ -106,7 +149,11 @@ namespace MertsToolBox.Systems
                 UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.ctrlKey.isPressed)
             {
                 int scrollDir = GetScrollDirection();
-                if (scrollDir != 0) SetCurrentDiameter(GetCurrentDiameter() + scrollDir);
+                if (scrollDir != 0)
+                {
+                    RegisterUndoForWheel();
+                    SetCurrentDiameter(GetCurrentDiameter() + scrollDir);
+                }
             }
         }
 
@@ -115,7 +162,6 @@ namespace MertsToolBox.Systems
         /// </summary>
         public void ChangeDiameter(int direction)
         {
-            ModRuntime.Log($"m_CurrentDiameterStepIndex: {m_CurrentDiameterStepIndex}, m_DiameterSteps: {m_DiameterSteps}");
             int stepSize = GetCurrentStepValue(m_CurrentDiameterStepIndex, m_DiameterSteps);
             int nextValue = GetNextStepAlignedInt(GetCurrentDiameter(), stepSize, direction);
             SetCurrentDiameter(nextValue);
