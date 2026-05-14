@@ -6,7 +6,7 @@
 		<!--The file where mod information which is required for publishing mod on PDX mods are stored-->
 		<PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>
 		<AssemblyVersion>2.0.0</AssemblyVersion>
-		<FileVersion>2.5.2</FileVersion>
+		<FileVersion>2.6.0</FileVersion>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -49,6 +49,10 @@
 		<Reference Include="Colossal.Mathematics">
 			<HintPath>D:\Cities Skylines II\Cities2_Data\Managed\Colossal.Mathematics.dll</HintPath>
 			<Private>False</Private>
+		</Reference>
+		<Reference Include="Colossal.PSI.Common">
+		  <HintPath>D:\Cities Skylines II\Cities2_Data\Managed\Colossal.PSI.Common.dll</HintPath>
+		  <Private>False</Private>
 		</Reference>
 		<Reference Include="Game">
 			<Private>false</Private>

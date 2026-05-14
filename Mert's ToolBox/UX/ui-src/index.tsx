@@ -5,13 +5,13 @@ import { trigger, bindValue, useValue } from "cs2/api";
 import { VanillaResolver } from "./utils/VanilliaResolver";
 import { parseActiveTool, ActiveTool } from "./utils/ActiveTool";
 
-import { CirclePanelSection } from "./CirclePanelSection";
+import { ShapePanelSection } from "./ShapePanelSection";
 import { HelixPanelSection } from "./HelixPanelSection";
 import { SoftBlockPanelSection } from "./SoftBlockPanelSection";
 import { GridPanelSection } from "./GridPanelSection";
 import { ToolBoxActionHints } from "./utils/ToolBoxActionHints";
 
-import circleIcon from "./Icons/Circle.svg";
+import shapeIcon from "./Icons/Circle.svg";
 import helixIcon from "./Icons/Helix.svg";
 import softBlockIcon from "./Icons/SoftBlock.svg";
 import gridIcon from "./Icons/SmartGrid.svg";
@@ -29,7 +29,7 @@ const activeToolMode$ = bindValue<string>(ModId, "ActiveTool", "None|None");
 const isToolBoxAllowed$ = bindValue<boolean>(ModId, "IsToolBoxAllowed", false);
 
 const icons: Record<string, string> = {
-    Circle: circleIcon,
+    Shape: shapeIcon,
     Helix: helixIcon,
     SoftBlock: softBlockIcon,
     Grid: gridIcon
@@ -71,20 +71,7 @@ const ToolBoxModeRow = () => {
 
     const toolsJson = useValue(toolList$) as string;
     const toolDefs = buildToolDefs(toolsJson);
-    function hideForeignMouseToolRowsOnce() {
-        const root = document.querySelector(".merts-toolbox-root") as HTMLElement | null;
-        if (!root) return;
 
-        const parent = root.parentElement;
-        if (!parent) return;
-
-        Array.from(parent.children).forEach((child) => {
-            if (child === root) return;
-
-            const el = child as HTMLElement;
-            el.style.display = "none";
-        });
-    }
     return (
         <VanillaResolver.instance.Section title="Mert's ToolBox">
             {toolDefs.map((tool: ToolDef) => {
@@ -130,13 +117,13 @@ const register: ModRegistrar = (moduleRegistry) => {
                     Array.from(root.children).forEach((child) => {
                         const el = child as HTMLElement;
 
-                        const isOurPanel =
-                            el.classList.contains("circle-panel-container") ||
+                        const isToolPanel =
+                            el.classList.contains("shape-panel-container") ||
                             el.classList.contains("helix-panel-container") ||
                             el.classList.contains("softblock-panel-container") ||
                             el.classList.contains("grid-panel-container");
 
-                        if (isOurPanel) return;
+                        if (isToolPanel) return;
 
                         if (el.className.includes("item_")) {
                             el.style.display = "none";
@@ -152,7 +139,7 @@ const register: ModRegistrar = (moduleRegistry) => {
 
                 const t = setTimeout(() => {
                     hideForeignRows();
-                }, 16);
+                }, 17);
 
                 return () => {
                     cancelAnimationFrame(raf);
@@ -185,7 +172,7 @@ const register: ModRegistrar = (moduleRegistry) => {
                 >
                     <ToolBoxActionHints />
 
-                    <CirclePanelSection />
+                    <ShapePanelSection />
                     <HelixPanelSection />
                     <SoftBlockPanelSection />
                     <GridPanelSection />

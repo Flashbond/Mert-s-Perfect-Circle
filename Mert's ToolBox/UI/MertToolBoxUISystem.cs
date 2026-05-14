@@ -1,14 +1,18 @@
 using Colossal.Entities;
 using Colossal.UI.Binding;
+using Game.Input;
 using Game.Prefabs;
 using Game.Tools;
 using Game.UI;
 using MertsToolBox.Core;
 using MertsToolBox.Management;
+using MertsToolBox.Settings;
 using MertsToolBox.Systems;
+using MertsToolBox.Utilities.Preset;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using Unity.Entities;
 using UnityEngine.Scripting;
@@ -21,12 +25,26 @@ namespace MertsToolBox
         private const string ModId = "MertsToolBox";
         private ToolSystem m_ToolSystem;
 
-        private CircleToolSystem m_Circle;
+        private ShapeToolSystem m_Shape;
         private HelixToolSystem m_Helix;
         private SoftBlockToolSystem m_SoftBlock;
         private GridToolSystem m_Grid;
 
+        private MertMutableBinding<string> m_ToolListBinding;
+        private NetPrefab m_LastToolListPrefab;
+        private bool m_LastIsToolBoxAllowed;
+
         private static readonly float[] s_DefaultElevationSteps = new float[] { 10f, 5f, 2.5f, 1.25f };
+        private string m_LastActiveToolPipe = "None|None";
+        private MertMutableBinding<string> m_PresetListBinding;
+        private string m_LastToolListPipe = "";
+
+        private ProxyAction m_OpenShapeToolAction;
+        private ProxyAction m_OpenHelixToolAction;
+        private ProxyAction m_OpenSoftBlockToolAction;
+        private ProxyAction m_OpenGridToolAction;
+        private ProxyAction m_UndoToolParameterAction;
+        private ProxyAction m_RedoToolParameterAction;
         #endregion
 
         #region Nested Types
@@ -48,6 +66,25 @@ namespace MertsToolBox
                 return true;
             }
         }
+        public class MertMutableBinding<T> : ValueBinding<T>
+        {
+            public MertMutableBinding(string group, string name, T initialValue = default)
+                : base(group, name, initialValue)
+            {
+            }
+
+            public void SetValue(T value)
+            {
+                base.Update(value);
+            }
+        }
+        private void RefreshToolListBinding()
+        {
+            if (m_ToolListBinding == null)
+                return;
+
+            m_ToolListBinding.Update(GetToolListPipe());
+        }
         #endregion
 
         #region Lifecycle Methods
@@ -61,7 +98,7 @@ namespace MertsToolBox
 
             m_ToolSystem = World.GetOrCreateSystemManaged<ToolSystem>();
 
-            m_Circle = World.GetOrCreateSystemManaged<CircleToolSystem>();
+            m_Shape = World.GetOrCreateSystemManaged<ShapeToolSystem>();
             m_Helix = World.GetOrCreateSystemManaged<HelixToolSystem>();
             m_SoftBlock = World.GetOrCreateSystemManaged<SoftBlockToolSystem>();
             m_Grid = World.GetOrCreateSystemManaged<GridToolSystem>();
@@ -70,8 +107,23 @@ namespace MertsToolBox
                 m_ToolSystem.EventToolChanged += OnToolChanged;
 
             RegisterBindings();
-
             MertToolState.OnToolAbortedByUI += HandleToolAbortedByUi;
+
+            m_OpenShapeToolAction = Mod.settings?.GetAction(ToolBoxSettings.OpenShapeTool);
+            m_OpenHelixToolAction = Mod.settings?.GetAction(ToolBoxSettings.OpenHelixTool);
+            m_OpenSoftBlockToolAction = Mod.settings?.GetAction(ToolBoxSettings.OpenSoftBlockTool);
+            m_OpenGridToolAction = Mod.settings?.GetAction(ToolBoxSettings.OpenGridTool);
+            m_UndoToolParameterAction = Mod.settings?.GetAction(ToolBoxSettings.UndoToolParameter);
+            m_RedoToolParameterAction = Mod.settings?.GetAction(ToolBoxSettings.RedoToolParameter);
+            EnableAction(m_OpenShapeToolAction);
+            EnableAction(m_OpenHelixToolAction);
+            EnableAction(m_OpenSoftBlockToolAction);
+            EnableAction(m_OpenGridToolAction);
+            EnableAction(m_UndoToolParameterAction);
+            EnableAction(m_RedoToolParameterAction);
+
+            RefreshToolListBinding();
+            
         }
 
         /// <summary>
@@ -85,6 +137,8 @@ namespace MertsToolBox
 
             TryReleaseStaleStampAfterReload();
             TryProcessPendingRestore();
+
+            ProcessHotkeys();
         }
 
         /// <summary>
@@ -99,68 +153,82 @@ namespace MertsToolBox
             }
 
             MertToolState.OnToolAbortedByUI -= HandleToolAbortedByUi;
-
             base.OnDestroy();
         }
         #endregion
 
         #region UI Bindings Registration
+        private void ProcessHotkeys()
+        {
+            if (MertToolState.SuppressUiAbortDuringRestore)
+                return;
+
+            MertBaseToolSystem activeTool = GetActiveCustomTool();
+
+            if (activeTool != null)
+            {
+                if (m_UndoToolParameterAction != null && m_UndoToolParameterAction.WasPressedThisFrame())
+                    activeTool.UndoToolParameter();
+
+                if (m_RedoToolParameterAction != null && m_RedoToolParameterAction.WasPressedThisFrame())
+                    activeTool.RedoToolParameter();
+
+                return;
+            }
+
+            if (m_OpenShapeToolAction != null && m_OpenShapeToolAction.WasPressedThisFrame())
+                OpenToolFromHotkey(m_Shape?.ToolId);
+
+            if (m_OpenHelixToolAction != null && m_OpenHelixToolAction.WasPressedThisFrame())
+                OpenToolFromHotkey(m_Helix?.ToolId);
+
+            if (m_OpenSoftBlockToolAction != null && m_OpenSoftBlockToolAction.WasPressedThisFrame())
+                OpenToolFromHotkey(m_SoftBlock?.ToolId);
+
+            if (m_OpenGridToolAction != null && m_OpenGridToolAction.WasPressedThisFrame())
+                OpenToolFromHotkey(m_Grid?.ToolId);
+        }
+        private static void EnableAction(ProxyAction action)
+        {
+            if (action != null)
+                action.shouldBeEnabled = true;
+        }
         /// <summary>
         /// Registers all initial ValueBindings and TriggerBindings connecting the C# backend to the Cohtml/TSX frontend.
         /// </summary>
         private void RegisterBindings()
         {
-            AddBinding(new ValueBinding<string>(
+            m_ToolListBinding = new MertMutableBinding<string>(
                 ModId,
                 "ToolList",
                 GetToolListPipe()
-            ));
+            );
 
-            AddUpdateBinding(new MertPolledBinding<string>(ModId, "ActiveTool", () =>
-            {
-                if (m_Circle != null && m_Circle.ToolEnabled)
-                    return $"{m_Circle.ToolId}|{m_Circle.ToolName}";
+            AddBinding(m_ToolListBinding);
 
-                if (m_Helix != null && m_Helix.ToolEnabled)
-                    return $"{m_Helix.ToolId}|{m_Helix.ToolName}";
+            AddUpdateBinding(new MertPolledBinding<string>( ModId, "ActiveTool", GetActiveToolPipe, "None|None"));
 
-                if (m_SoftBlock != null && m_SoftBlock.ToolEnabled)
-                    return $"{m_SoftBlock.ToolId}|{m_SoftBlock.ToolName}";
+            AddUpdateBinding(new MertPolledBinding<bool>( ModId, "IsToolBoxAllowed", GetIsToolBoxAllowed, false));
 
-                if (m_Grid != null && m_Grid.ToolEnabled)
-                    return $"{m_Grid.ToolId}|{m_Grid.ToolName}";
-
-                return "None|None";
-            }, "None|None"));
-
-            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsToolBoxAllowed", () =>
-            {
-                bool prefabValid =
-                    (m_Circle != null && m_Circle.IsCurrentPrefabValid()) ||
-                    (m_Helix != null && m_Helix.IsCurrentPrefabValid()) ||
-                    (m_SoftBlock != null && m_SoftBlock.IsCurrentPrefabValid()) ||
-                    (m_Grid != null && m_Grid.IsCurrentPrefabValid());
-
-                bool toolContextValid = m_ToolSystem != null && (
-                    m_ToolSystem.activeTool is NetToolSystem ||
-                    (m_Circle != null && m_Circle.ToolEnabled) ||
-                    (m_Helix != null && m_Helix.ToolEnabled) ||
-                    (m_SoftBlock != null && m_SoftBlock.ToolEnabled) ||
-                    (m_Grid != null && m_Grid.ToolEnabled)
-                );
-
-                return prefabValid && toolContextValid;
-            }, false));
-
-            // Circle Bindings
-            AddUpdateBinding(new MertPolledBinding<float>(ModId, "CircleDiameter",
-                () => m_Circle?.GetCurrentDiameter() ?? 96));
-            AddUpdateBinding(new MertPolledBinding<int>(ModId, "CircleDiameterStepValue",
-                () => m_Circle?.GetDiameterStepSize() ?? 8));
+            // Shape Bindings
+            AddUpdateBinding(new MertPolledBinding<float>(ModId, "ShapeDimension",
+                () => m_Shape?.GetCurrentDimension() ?? 96));
+            AddUpdateBinding(new MertPolledBinding<int>(ModId, "ShapeDimensionStepValue",
+                () => m_Shape?.GetDimensionStepSize() ?? 8));
+            AddUpdateBinding(new MertPolledBinding<string>(ModId, "ShapeShapeName",
+                () => m_Shape != null ? m_Shape.GetShapeName(m_Shape.GetCurrentSides()) : "Circle"));
             AddBinding(new ValueBinding<int[]>(
                 ModId,
-                "CircleDiameterStepArray",
-                m_Circle?.m_DiameterSteps ?? Array.Empty<int>(),
+                "ShapeDimensionStepArray",
+                m_Shape?.m_DimensionSteps ?? Array.Empty<int>(),
+                new ArrayWriter<int>()
+            ));
+            AddUpdateBinding(new MertPolledBinding<int>(ModId, "ShapeSides",
+                () => m_Shape?.GetCurrentSides() ?? 0));
+            AddBinding(new ValueBinding<int[]>(
+                ModId,
+                "ShapeAllowedSidesArray",
+                m_Shape?.m_AllowedSides ?? Array.Empty<int>(),
                 new ArrayWriter<int>()
             ));
 
@@ -221,6 +289,10 @@ namespace MertsToolBox
             ));
             AddUpdateBinding(new MertPolledBinding<float>(ModId, "GetBorderRadius",
                          () => m_SoftBlock?.GetCurrentBorderRadius() ?? 5f));
+            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "SoftBlockStraightCorners",
+                () => m_SoftBlock != null && m_SoftBlock.GetUseStraightCorners()));
+            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "SoftBlockStraightCornersSupported",
+                () => m_SoftBlock != null && m_SoftBlock.IsStraightCornersSupported()));
 
             // Grid Bindings
             AddUpdateBinding(new MertPolledBinding<int>(ModId, "GridBlockWidth",
@@ -241,7 +313,7 @@ namespace MertsToolBox
             // Elevation Bindings
             AddUpdateBinding(new MertPolledBinding<float>(ModId, "ElevationStepValue", () =>
             {
-                if (m_Circle != null && m_Circle.ToolEnabled) return m_Circle.GetElevationStepValue();
+                if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.GetElevationStepValue();
                 if (m_Helix != null && m_Helix.ToolEnabled) return m_Helix.GetElevationStepValue();
                 if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.GetElevationStepValue();
                 if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.GetElevationStepValue();
@@ -256,7 +328,7 @@ namespace MertsToolBox
             ));
             AddUpdateBinding(new MertPolledBinding<float>(ModId, "ElevationValue", () =>
             {
-                if (m_Circle != null && m_Circle.ToolEnabled) return m_Circle.GetCurrentNetToolElevation();
+                if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.GetCurrentNetToolElevation();
                 if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.GetCurrentNetToolElevation();
                 if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.GetCurrentNetToolElevation();
 
@@ -273,29 +345,29 @@ namespace MertsToolBox
 
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapGeometryActive", () =>
             {
-                if (m_Circle != null && m_Circle.ToolEnabled) return m_Circle.IsSnapGeometryEnabled();
+                if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.IsSnapGeometryEnabled();
                 if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.IsSnapGeometryEnabled();
                 if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.IsSnapGeometryEnabled();
                 return false;
             }));
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapNetSideActive", () =>
             {
-                if (m_Circle != null && m_Circle.ToolEnabled) return m_Circle.IsSnapNetSideEnabled();
+                if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.IsSnapNetSideEnabled();
                 if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.IsSnapNetSideEnabled();
                 if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.IsSnapNetSideEnabled();
                 return false;
             }));
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapNetAreaActive", () =>
             {
-                if (m_Circle != null && m_Circle.ToolEnabled) return m_Circle.IsSnapNetAreaEnabled();
+                if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.IsSnapNetAreaEnabled();
                 if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.IsSnapNetAreaEnabled();
                 if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.IsSnapNetAreaEnabled();
                 return false;
             }));
 
             // Action Hints
-            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "ShowCircleCtrlWheelHint",
-                () => Mod.settings != null && Mod.settings.UseCtrlWheelForCircleDiameterAdjustment));
+            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "ShowShapeCtrlWheelHint",
+                () => Mod.settings != null && Mod.settings.UseCtrlWheelForShapeDimensionAdjustment));
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "ShowHelixCtrlWheelHint",
                 () => Mod.settings != null && Mod.settings.UseCtrlWheelForHelixTurnAdjustment));
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "ShowSoftBlockCtrlWheelHint",
@@ -303,21 +375,47 @@ namespace MertsToolBox
             AddUpdateBinding(new MertPolledBinding<string>(ModId, "ActionStatusText",
                 () => GetActionStatusText(), ""));
 
+            AddUpdateBinding(new MertPolledBinding<string>(ModId, "PresetList", () =>
+            {
+                MertBaseToolSystem tool = GetActiveCustomTool();
+                if (tool == null)
+                    return "";
+
+                NetPrefab prefab = tool.GetCurrentSelectedNetPrefabForUi();
+                if (prefab == null)
+                    return "";
+
+                List<MertToolPreset> presets =
+                    MertToolPresetStorage.LoadPresets(tool.ToolId, prefab.name);
+
+                return string.Join(";", presets.Select(p => p.DisplayName));
+            }, ""));
+
+            // Preset Bindings
+            m_PresetListBinding = new MertMutableBinding<string>(ModId, "PresetList", "");
+            AddBinding(m_PresetListBinding);
+
             // Global Triggers
             AddBinding(new TriggerBinding<string>(ModId, "ToggleTool", (toolId) =>
             {
-                MertToolState.UserJustChangedAssetCategory = false;
+                MertToolState.ClearToolbarNavigation();
+                MertToolState.ClearPendingRestore();
+
                 CloseTools(ToolExitMode.UserSelectionClose);
 
-                if (toolId == m_Circle?.ToolId) m_Circle.SetToolState(true);
-                else if (toolId == m_Helix?.ToolId) m_Helix.SetToolState(true);
-                else if (toolId == m_SoftBlock?.ToolId) m_SoftBlock.SetToolState(true);
-                else if (toolId == m_Grid?.ToolId) m_Grid.SetToolState(true);
+                if (toolId == m_Shape?.ToolId)
+                    m_Shape.SetToolState(true);
+                else if (toolId == m_Helix?.ToolId)
+                    m_Helix.SetToolState(true);
+                else if (toolId == m_SoftBlock?.ToolId)
+                    m_SoftBlock.SetToolState(true);
+                else if (toolId == m_Grid?.ToolId)
+                    m_Grid.SetToolState(true);
             }));
 
             AddBinding(new TriggerBinding<float>(ModId, "ElevationStep", (val) =>
             {
-                if (m_Circle != null && m_Circle.ToolEnabled) m_Circle.SetElevationStepFromUi(val);
+                if (m_Shape != null && m_Shape.ToolEnabled) m_Shape.SetElevationStepFromUi(val);
                 else if (m_Helix != null && m_Helix.ToolEnabled) m_Helix.SetElevationStepFromUi(val);
                 else if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) m_SoftBlock.SetElevationStepFromUi(val);
                 else if (m_Grid != null && m_Grid.ToolEnabled) m_Grid.SetElevationStepFromUi(val);
@@ -325,23 +423,25 @@ namespace MertsToolBox
 
             AddBinding(new TriggerBinding(ModId, "ElevationUp", () =>
             {
-                if (m_Circle != null && m_Circle.ToolEnabled) m_Circle.QueueElevationChangeFromUi(+1);
+                if (m_Shape != null && m_Shape.ToolEnabled) m_Shape.QueueElevationChangeFromUi(+1);
                 else if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) m_SoftBlock.QueueElevationChangeFromUi(+1);
                 else if (m_Grid != null && m_Grid.ToolEnabled) m_Grid.QueueElevationChangeFromUi(+1);
             }));
 
             AddBinding(new TriggerBinding(ModId, "ElevationDown", () =>
             {
-                if (m_Circle != null && m_Circle.ToolEnabled) m_Circle.QueueElevationChangeFromUi(-1);
+                if (m_Shape != null && m_Shape.ToolEnabled) m_Shape.QueueElevationChangeFromUi(-1);
                 else if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) m_SoftBlock.QueueElevationChangeFromUi(-1);
                 else if (m_Grid != null && m_Grid.ToolEnabled) m_Grid.QueueElevationChangeFromUi(-1);
             }));
 
-            // Circle Triggers
-            AddBinding(new TriggerBinding(ModId, "CircleDiameterUp", () => m_Circle?.QueueDiameterChange(+1)));
-            AddBinding(new TriggerBinding(ModId, "CircleDiameterDown", () => m_Circle?.QueueDiameterChange(-1)));
-            AddBinding(new TriggerBinding<int>(ModId, "CircleDiameterStep", (val) => m_Circle?.QueueSetDiameterStep(val)));
-            AddBinding(new TriggerBinding<string>(ModId, "ToggleCircleSnap", (snapType) => m_Circle?.QueueSnapToggle(snapType)));
+            // Shape Triggers
+            AddBinding(new TriggerBinding(ModId, "ShapeDimensionUp", () => m_Shape?.QueueDimensionChange(+1)));
+            AddBinding(new TriggerBinding(ModId, "ShapeDimensionDown", () => m_Shape?.QueueDimensionChange(-1)));
+            AddBinding(new TriggerBinding<int>(ModId, "ShapeDimensionStep", (val) => m_Shape?.QueueSetDimensionStep(val)));
+            AddBinding(new TriggerBinding(ModId, "ShapeSidesUp", () => m_Shape?.QueueSidesChange(+1)));
+            AddBinding(new TriggerBinding(ModId, "ShapeSidesDown", () => m_Shape?.QueueSidesChange(-1)));
+            AddBinding(new TriggerBinding<string>(ModId, "ToggleShapeSnap", (snapType) => m_Shape?.QueueSnapToggle(snapType)));
 
             // Helix Triggers
             AddBinding(new TriggerBinding(ModId, "HelixDiameterUp", () => m_Helix?.QueueDiameterChange(+1)));
@@ -349,7 +449,7 @@ namespace MertsToolBox
             AddBinding(new TriggerBinding<int>(ModId, "HelixDiameterStep", (val) => m_Helix?.QueueSetDiameterStep(val)));
             AddBinding(new TriggerBinding(ModId, "HelixTurnsUp", () => m_Helix?.QueueTurnChange(+1)));
             AddBinding(new TriggerBinding(ModId, "HelixTurnsDown", () => m_Helix?.QueueTurnChange(-1)));
-            AddBinding(new TriggerBinding<float>(ModId, "HelixTurnsStep", (val) => m_Helix?.QueueSetTurnStep(val)));
+            AddBinding(new TriggerBinding<float>(ModId, "HelixTurnStep", (val) => m_Helix?.QueueSetTurnStep(val)));
             AddBinding(new TriggerBinding(ModId, "HelixClearanceUp", () => m_Helix?.QueueClearanceChange(+1)));
             AddBinding(new TriggerBinding(ModId, "HelixClearanceDown", () => m_Helix?.QueueClearanceChange(-1)));
             AddBinding(new TriggerBinding<float>(ModId, "HelixClearanceStep", (val) => m_Helix?.QueueSetClearanceStep(val)));
@@ -366,6 +466,7 @@ namespace MertsToolBox
             AddBinding(new TriggerBinding(ModId, "BeginBorderRadiusDrag", () => m_SoftBlock?.BeginBorderRadiusDrag()));
             AddBinding(new TriggerBinding(ModId, "EndBorderRadiusDrag", () => m_SoftBlock?.EndBorderRadiusDrag()));
             AddBinding(new TriggerBinding<string>(ModId, "SoftBlockToggleSnap", (snapType) => m_SoftBlock?.QueueSnapToggle(snapType)));
+            AddBinding(new TriggerBinding(ModId, "SoftBlockToggleStraightCorners", () => m_SoftBlock?.QueueToggleStraightCorners()));
 
             // Grid Triggers
             AddBinding(new TriggerBinding(ModId, "GridBlockWidthUp", () => m_Grid?.QueueBlockWidthChange(+1)));
@@ -379,13 +480,73 @@ namespace MertsToolBox
             AddBinding(new TriggerBinding(ModId, "GridToggleAlternating", () => m_Grid?.QueueToggleAlternating()));
             AddBinding(new TriggerBinding(ModId, "GridToggleOrientation", () => m_Grid?.QueueToggleOrientation()));
             AddBinding(new TriggerBinding<string>(ModId, "GridToggleSnap", (snapType) => m_Grid?.QueueSnapToggle(snapType)));
+
+            // Preset Triggers
+            AddBinding(new CallBinding<string, bool>(ModId, "SavePreset", (toolId) =>
+            {
+                try
+                {
+                    MertBaseToolSystem tool = GetToolById(toolId);
+                    MertToolPreset preset = tool?.CreatePresetSnapshot();
+
+                    if (preset != null)
+                    {
+                        return MertToolPresetStorage.SavePreset(preset);
+                    }
+
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ModRuntime.Warn($"[CallBinding] Save preset binding error: {e.Message}");
+                    return false;
+                }
+            }));
+
+            AddBinding(new TriggerBinding<string>(ModId, "LoadPreset", (presetDisplayName) =>
+            {
+                MertBaseToolSystem tool = GetActiveCustomTool();
+                if (tool == null)
+                    return;
+
+                NetPrefab prefab = tool.GetCurrentSelectedNetPrefabForUi();
+                if (prefab == null)
+                    return;
+
+                List<MertToolPreset> presets =
+                    MertToolPresetStorage.LoadPresets(tool.ToolId, prefab.name);
+
+                MertToolPreset preset = presets.FirstOrDefault(p => p.DisplayName == presetDisplayName);
+                if (preset == null)
+                    return;
+
+                tool.ApplyPresetSnapshot(preset);
+            }));
+            AddBinding(new TriggerBinding(ModId, "RefreshPresetList", () => RefreshPresetListBinding()));
+            AddBinding(new TriggerBinding<string>(ModId, "DeletePreset", (presetDisplayName) =>
+            {
+                MertBaseToolSystem tool = GetActiveCustomTool();
+                if (tool == null) return;
+
+                NetPrefab prefab = tool.GetCurrentSelectedNetPrefabForUi();
+                if (prefab == null) return;
+
+                bool deleted = MertToolPresetStorage.DeletePreset(
+                    tool.ToolId,
+                    prefab.name,
+                    presetDisplayName
+                );
+
+                if (deleted)
+                    RefreshPresetListBinding();
+            }));
         }
         #endregion
 
         #region Tool Event Handling
         private float[] GetCurrentElevationSteps()
         {
-            if (m_Circle != null && m_Circle.ToolEnabled) return m_Circle.GetElevationStepArray();
+            if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.GetElevationStepArray();
             if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.GetElevationStepArray();
             if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.GetElevationStepArray();
 
@@ -405,7 +566,7 @@ namespace MertsToolBox
         /// </summary>
         private void CloseTools(ToolExitMode exitMode)
         {
-            m_Circle?.RequestDisable(exitMode);
+            m_Shape?.RequestDisable(exitMode);
             m_Helix?.RequestDisable(exitMode);
             m_SoftBlock?.RequestDisable(exitMode);
             m_Grid?.RequestDisable(exitMode);
@@ -418,37 +579,41 @@ namespace MertsToolBox
         {
             if (MertToolState.SuppressToolChangedDuringColdstart)
                 return;
+
             if (MertToolState.SuppressUiAbortDuringRestore)
                 return;
 
             var objectTool = World.GetOrCreateSystemManaged<ObjectToolSystem>();
             var netTool = World.GetOrCreateSystemManaged<NetToolSystem>();
             var defaultTool = World.GetOrCreateSystemManaged<DefaultToolSystem>();
+
             bool isRoadBuilderTool = IsRoadBuilderTool(tool);
+
+            if (tool == defaultTool &&
+                MertToolState.ToolbarNavigationInProgress)
+            {
+                MertToolState.ClearPendingRestore();
+                MertToolState.ClearToolbarNavigation();
+                return;
+            }
+
+            if (MertToolState.ToolbarNavigationInProgress)
+                return;
 
             if (isRoadBuilderTool)
             {
-                CloseTools(ToolExitMode.SilentTabClose);
+                CloseTools(ToolExitMode.UserSelectionClose);
                 return;
             }
+
             if (tool == defaultTool)
             {
-                if (MertToolState.UserJustChangedAssetCategory)
-                    return;
-
                 CloseTools(ToolExitMode.RestoreFromEscape);
                 return;
             }
 
             if (tool == netTool)
-            {
-                if (MertToolState.UserJustChangedAssetCategory)
-                {
-                    MertToolState.UserJustChangedAssetCategory = false;
-                    return;
-                }
                 return;
-            }
 
             if (tool != objectTool && tool != netTool)
             {
@@ -460,6 +625,42 @@ namespace MertsToolBox
 
                 CloseTools(ToolExitMode.UserSelectionClose);
             }
+        }
+        private MertBaseToolSystem GetToolById(string toolId)
+        {
+            if (m_Shape != null && m_Shape.ToolId == toolId) return m_Shape;
+            if (m_Helix != null && m_Helix.ToolId == toolId) return m_Helix;
+            if (m_SoftBlock != null && m_SoftBlock.ToolId == toolId) return m_SoftBlock;
+            if (m_Grid != null && m_Grid.ToolId == toolId) return m_Grid;
+            return null;
+        }
+        private MertBaseToolSystem GetActiveCustomTool()
+        {
+            if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape;
+            if (m_Helix != null && m_Helix.ToolEnabled) return m_Helix;
+            if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock;
+            if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid;
+
+            return null;
+        }
+        private void OpenToolFromHotkey(string toolId)
+        {
+            if (string.IsNullOrEmpty(toolId))
+                return;
+
+            MertBaseToolSystem target = GetToolById(toolId);
+            if (target == null)
+                return;
+
+            if (target.ToolEnabled)
+                return;
+
+            if (!target.IsCurrentPrefabValid())
+                return;
+
+            MertToolState.UserJustChangedAssetCategory = false;
+
+            target.SetToolState(true);
         }
         #endregion
 
@@ -516,7 +717,7 @@ namespace MertsToolBox
             if (roadEntity == Entity.Null || !World.EntityManager.Exists(roadEntity))
                 return false;
 
-            if (!MertToolbarHandoffMemory.IsRoadNetPrefab(roadEntity, out var resolvedRoad) || resolvedRoad == null)
+            if (!MertToolbarHandoffMemory.IsSupportedNetPrefab(roadEntity, out var resolvedRoad) || resolvedRoad == null)
                 return false;
 
             Entity newCategory = Entity.Null;
@@ -537,7 +738,7 @@ namespace MertsToolBox
 
             exitMode = sameCategory
                 ? ToolExitMode.UserSelectionClose
-                : ToolExitMode.SilentTabClose;
+                : ToolExitMode.SilentCategoryClose;
 
             return true;
         }
@@ -605,7 +806,7 @@ namespace MertsToolBox
             {
                 MertToolState.HasReleasedStaleObjectToolThisFrame = true;
                 ModRuntime.Log("TryReleaseStaleStampAfterReload | stale stamp detected -> SilentTabClose");
-                CloseTools(ToolExitMode.SilentTabClose);
+                CloseTools(ToolExitMode.SilentCategoryClose);
             }
         }
 
@@ -620,7 +821,21 @@ namespace MertsToolBox
             if (!MertToolState.PendingRestore)
                 return;
 
+            if (MertToolState.ToolbarNavigationInProgress ||
+                MertToolState.UserJustChangedAssetMenu ||
+                MertToolState.UserJustChangedAssetCategory)
+            {
+                MertToolState.ClearPendingRestore();
+                return;
+            }
+
             if (MertToolState.PendingRestoreMode == ToolExitMode.None)
+            {
+                MertToolState.ClearPendingRestore();
+                return;
+            }
+
+            if (MertToolState.PendingRestoreMode == ToolExitMode.RestoreFromPlacement)
             {
                 MertToolState.ClearPendingRestore();
                 return;
@@ -745,34 +960,114 @@ namespace MertsToolBox
         #endregion
 
         #region Helpers & UI Formatting Utilities
+        private string GetActiveToolPipe()
+        {
+            string next = "None|None";
+
+            if (m_Shape != null && m_Shape.ToolEnabled)
+                next = $"{m_Shape.ToolId}|{m_Shape.ToolName}";
+            else if (m_Helix != null && m_Helix.ToolEnabled)
+                next = $"{m_Helix.ToolId}|{m_Helix.ToolName}";
+            else if (m_SoftBlock != null && m_SoftBlock.ToolEnabled)
+                next = $"{m_SoftBlock.ToolId}|{m_SoftBlock.ToolName}";
+            else if (m_Grid != null && m_Grid.ToolEnabled)
+                next = $"{m_Grid.ToolId}|{m_Grid.ToolName}";
+
+            if (next == m_LastActiveToolPipe)
+                return m_LastActiveToolPipe;
+
+            m_LastActiveToolPipe = next;
+            return next;
+        }
         private string GetToolListPipe()
         {
-            var parts = new List<string>();
+            bool isTrackLike =
+                m_SoftBlock != null && m_SoftBlock.IsCurrentTrackLikePrefab();
 
-            if (m_Circle != null)
-                parts.Add($"{m_Circle.ToolId}|{m_Circle.ToolName}|{m_Circle.ToolId}");
+            bool isPierLike =
+                m_Helix != null && m_Helix.IsCurrentPierLikePrefab();
 
-            if (m_Helix != null)
-                parts.Add($"{m_Helix.ToolId}|{m_Helix.ToolName}|{m_Helix.ToolId}");
+            string next;
 
-            if (m_SoftBlock != null)
-                parts.Add($"{m_SoftBlock.ToolId}|{m_SoftBlock.ToolName}|{m_SoftBlock.ToolId}");
+            if (isTrackLike)
+            {
+                next = m_SoftBlock != null
+                    ? $"{m_SoftBlock.ToolId}|{m_SoftBlock.ToolName}|{m_SoftBlock.ToolId}"
+                    : "";
+            }
+            else if (isPierLike)
+            {
+                next = m_Helix != null
+                    ? $"{m_Helix.ToolId}|{m_Helix.ToolName}|{m_Helix.ToolId}"
+                    : "";
+            }
+            else
+            {
+                List<string> parts = new();
 
-            if (m_Grid != null)
-                parts.Add($"{m_Grid.ToolId}|{m_Grid.ToolName}|{m_Grid.ToolId}");
+                if (m_Shape != null)
+                    parts.Add($"{m_Shape.ToolId}|{m_Shape.ToolName}|{m_Shape.ToolId}");
+                if (m_Helix != null)
+                    parts.Add($"{m_Helix.ToolId}|{m_Helix.ToolName}|{m_Helix.ToolId}");
+                if (m_SoftBlock != null)
+                    parts.Add($"{m_SoftBlock.ToolId}|{m_SoftBlock.ToolName}|{m_SoftBlock.ToolId}");
+                if (m_Grid != null)
+                    parts.Add($"{m_Grid.ToolId}|{m_Grid.ToolName}|{m_Grid.ToolId}");
 
-            return string.Join(";", parts);
+                next = string.Join(";", parts);
+            }
+
+            m_LastToolListPipe = next;
+            return next;
         }
+        private bool GetIsToolBoxAllowed()
+        {
+            NetPrefab currentPrefab =
+                m_Helix?.GetCurrentSelectedNetPrefabForUi() ??
+                m_SoftBlock?.GetCurrentSelectedNetPrefabForUi();
+
+            if (currentPrefab != m_LastToolListPrefab)
+            {
+                m_LastToolListPrefab = currentPrefab;
+                RefreshToolListBinding();
+            }
+
+            bool prefabValid =
+                (m_Shape != null && m_Shape.IsCurrentPrefabValid()) ||
+                (m_Helix != null && m_Helix.IsCurrentPrefabValid()) ||
+                (m_SoftBlock != null && m_SoftBlock.IsCurrentPrefabValid()) ||
+                (m_Grid != null && m_Grid.IsCurrentPrefabValid());
+
+            if (!prefabValid)
+            {
+                m_LastIsToolBoxAllowed = false;
+                return false;
+            }
+
+            bool anyToolEnabled =
+                (m_Shape != null && m_Shape.ToolEnabled) ||
+                (m_Helix != null && m_Helix.ToolEnabled) ||
+                (m_SoftBlock != null && m_SoftBlock.ToolEnabled) ||
+                (m_Grid != null && m_Grid.ToolEnabled);
+
+            bool toolContextValid =
+                m_ToolSystem != null &&
+                (m_ToolSystem.activeTool is NetToolSystem || anyToolEnabled);
+
+            m_LastIsToolBoxAllowed = prefabValid && toolContextValid;
+            return m_LastIsToolBoxAllowed;
+        }
+
         /// <summary>
         /// Generates the formatted status text displaying current metrics for the active tool.
         /// </summary>
         private string GetActionStatusText()
         {
-            if (m_Circle != null && m_Circle.ToolEnabled)
+            if (m_Shape != null && m_Shape.ToolEnabled)
             {
-                CircleMetrics m = m_Circle.GetCurrentCircleMetrics();
-                return $"Outer: {FormatSmart(m.OuterDiameterUnits)}U ({FormatSmart(m.OuterDiameterMeters)}m) - " +
-                       $"Inner: {FormatSmart(m.InnerDiameterUnits)}U ({FormatSmart(m.InnerDiameterMeters)}m)";
+                ShapeMetrics m = m_Shape.GetCurrentShapeMetrics();
+                return $"Outer: {FormatSmart(m.OuterDimensionUnits)}U ({FormatSmart(m.OuterDimensionMeters)}m) - " +
+                       $"Inner: {FormatSmart(m.InnerDimensionUnits)}U ({FormatSmart(m.InnerDimensionMeters)}m)";
             }
             if (m_Helix != null && m_Helix.ToolEnabled)
             {
@@ -812,5 +1107,32 @@ namespace MertsToolBox
             return value.ToString(CultureInfo.InvariantCulture);
         }
         #endregion
+
+        #region Preset System
+        
+        private void RefreshPresetListBinding()
+        {
+            MertBaseToolSystem tool = GetActiveCustomTool();
+            if (tool == null)
+            {
+                m_PresetListBinding?.SetValue("");
+                return;
+            }
+
+            NetPrefab prefab = tool.GetCurrentSelectedNetPrefabForUi();
+            if (prefab == null)
+            {
+                m_PresetListBinding?.SetValue("");
+                return;
+            }
+
+            List<MertToolPreset> presets =
+                MertToolPresetStorage.LoadPresets(tool.ToolId, prefab.name);
+
+            string value = string.Join(";", presets.Select(p => p.DisplayName));
+            m_PresetListBinding?.SetValue(value);
+        }
+        #endregion
+
     }
 }

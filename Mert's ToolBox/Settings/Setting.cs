@@ -1,4 +1,5 @@
 ﻿using Colossal.IO.AssetDatabase;
+using Game.Input;
 using Game.Modding;
 using Game.Settings;
 using System;
@@ -6,25 +7,42 @@ using System;
 namespace MertsToolBox.Settings
 {
     [FileLocation("ModsSettings/MertsToolBox/MertsToolBox")]
+    [SettingsUIKeyboardAction(OpenShapeTool, ActionType.Button, usages: new string[] { "Tool" })]
+    [SettingsUIKeyboardAction(OpenHelixTool, ActionType.Button, usages: new string[] { "Tool" })]
+    [SettingsUIKeyboardAction(OpenSoftBlockTool, ActionType.Button, usages: new string[] { "Tool" })]
+    [SettingsUIKeyboardAction(OpenGridTool, ActionType.Button, usages: new string[] { "Tool" })]
+    [SettingsUIKeyboardAction(UndoToolParameter, ActionType.Button, usages: new string[] { "Tool" })]
+    [SettingsUIKeyboardAction(RedoToolParameter, ActionType.Button, usages: new string[] { "Tool" })]
     [SettingsUITabOrder(
-        TAB_CIRCLE,
+        TAB_GENERAL,
+        TAB_ROUNDABOUT,
         TAB_HELIX,
         TAB_SOFTBLOCK,
         TAB_GRID
     )]
-    [SettingsUIGroupOrder(GROUP_DEFAULTS, GROUP_CONTROLS)]
+    [SettingsUIGroupOrder(GROUP_KEYBINDS, GROUP_DEFAULTS, GROUP_CONTROLS)]
     public class ToolBoxSettings : ModSetting
     {
-        public const string TAB_CIRCLE = "Circle";
-        public const string TAB_HELIX = "Helix";
+        public const string TAB_GENERAL = "General";
+       
+        public const string TAB_ROUNDABOUT = "Perfect Shape";
+        public const string TAB_HELIX = "Procedural Helix";
         public const string TAB_SOFTBLOCK = "Soft Block";
-        public const string TAB_GRID = "Grid";
+        public const string TAB_GRID = "Smart Grid";
 
+        public const string GROUP_KEYBINDS = "Key Bindings";
         public const string GROUP_DEFAULTS = "Defaults";
         public const string GROUP_CONTROLS = "Controls";
 
-        private int m_DefaultCircleDiameter = 96;
-        private bool m_UseCtrlWheelForCircleDiameterAdjustment = false;
+        public const string OpenShapeTool = "OpenShapeTool";
+        public const string OpenHelixTool = "OpenHelixTool";
+        public const string OpenSoftBlockTool = "OpenSoftBlockTool";
+        public const string OpenGridTool = "OpenGridTool";
+        public const string UndoToolParameter = "UndoToolParameter";
+        public const string RedoToolParameter = "RedoToolParameter";
+
+        private int m_DefaultShapeDimension = 96;
+        private bool m_UseCtrlWheelForShapeDimensionAdjustment = false;
 
         private int m_DefaultHelixDiameter = 96;
         private float m_DefaultTurns = 3f;
@@ -33,49 +51,75 @@ namespace MertsToolBox.Settings
 
         private int m_DefaultSoftBlockWidth = 96;
         private int m_DefaultSoftBlockLength = 192;
+        private float m_DefaultSoftBlockBorderRadius = 5.0f;
         private bool m_UseCtrlWheelForSoftBlockBorderRadius = false;
 
-        private int m_BlockWidthU = 6;
-        private int m_BlockLengthU = 6;
-        private int m_Columns = 2;
-        private int m_Rows = 2;
+        private int m_DefaultBlockWidthU = 6;
+        private int m_DefaultBlockLengthU = 6;
+        private int m_DefaultColumns = 2;
+        private int m_DefaultRows = 2;
         private bool m_EnableGridSnap = false;
 
-        public static event Action OnOptionsChanged;
-
+        public event Action OnSnapOptionsChanged;
+        public event Action<int, int> OnToolParametersChanged;
         public ToolBoxSettings(IMod mod) : base(mod)
         {
             SetDefaults();
         }
+        // -------------------------
+        // General
+        // -------------------------
+        [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.C, OpenShapeTool, ctrl: true)]
+        public ProxyBinding OpenShapeToolKey { get; set; }
+
+        [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.H, OpenHelixTool, ctrl: true)]
+        public ProxyBinding OpenHelixToolKey { get; set; }
+
+        [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.S, OpenSoftBlockTool, ctrl: true)]
+        public ProxyBinding OpenSoftBlockToolKey { get; set; }
+
+        [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.G, OpenGridTool, ctrl: true)]
+        public ProxyBinding OpenGridToolKey { get; set; }
+
+        [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.Z, UndoToolParameter, ctrl: true)]
+        public ProxyBinding UndoToolParameterKey { get; set; }
+
+        [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.Y, RedoToolParameter, ctrl: true)]
+        public ProxyBinding RedoToolParameterKey { get; set; }
 
         // -------------------------
-        // Circle
+        // Shape
         // -------------------------
-        [SettingsUISection(TAB_CIRCLE, GROUP_DEFAULTS)]
+        [SettingsUISection(TAB_ROUNDABOUT, GROUP_DEFAULTS)]
         [SettingsUISlider(min = 48, max = 320, step = 1)]
-        public int DefaultCircleDiameter
+        public int DefaultShapeDimension
         {
-            get => m_DefaultCircleDiameter;
+            get => m_DefaultShapeDimension;
             set
             {
                 int clamped = Math.Clamp(value, 48, 320);
-                if (m_DefaultCircleDiameter == clamped) return;
+                if (m_DefaultShapeDimension == clamped) return;
 
-                m_DefaultCircleDiameter = clamped;
-                OnOptionsChanged?.Invoke();
+                m_DefaultShapeDimension = clamped;
+                OnToolParametersChanged?.Invoke(1, 1);
             }
         }
 
-        [SettingsUISection(TAB_CIRCLE, GROUP_CONTROLS)]
-        public bool UseCtrlWheelForCircleDiameterAdjustment
+        [SettingsUISection(TAB_ROUNDABOUT, GROUP_CONTROLS)]
+        public bool UseCtrlWheelForShapeDimensionAdjustment
         {
-            get => m_UseCtrlWheelForCircleDiameterAdjustment;
+            get => m_UseCtrlWheelForShapeDimensionAdjustment;
             set
             {
-                if (m_UseCtrlWheelForCircleDiameterAdjustment == value) return;
+                if (m_UseCtrlWheelForShapeDimensionAdjustment == value) return;
 
-                m_UseCtrlWheelForCircleDiameterAdjustment = value;
-                OnOptionsChanged?.Invoke();
+                m_UseCtrlWheelForShapeDimensionAdjustment = value;
             }
         }
 
@@ -93,7 +137,7 @@ namespace MertsToolBox.Settings
                 if (m_DefaultHelixDiameter == clamped) return;
 
                 m_DefaultHelixDiameter = clamped;
-                OnOptionsChanged?.Invoke();
+                OnToolParametersChanged?.Invoke(2, 1);
             }
         }
 
@@ -108,7 +152,7 @@ namespace MertsToolBox.Settings
                 if (Math.Abs(m_DefaultTurns - clamped) < 0.0001f) return;
 
                 m_DefaultTurns = clamped;
-                OnOptionsChanged?.Invoke();
+                OnToolParametersChanged?.Invoke(2, 2);
             }
         }
 
@@ -123,7 +167,7 @@ namespace MertsToolBox.Settings
                 if (Math.Abs(m_DefaultClearance - clamped) < 0.0001f) return;
 
                 m_DefaultClearance = clamped;
-                OnOptionsChanged?.Invoke();
+                OnToolParametersChanged?.Invoke(2, 3);
             }
         }
 
@@ -136,7 +180,6 @@ namespace MertsToolBox.Settings
                 if (m_UseCtrlWheelForHelixTurnAdjustment == value) return;
 
                 m_UseCtrlWheelForHelixTurnAdjustment = value;
-                OnOptionsChanged?.Invoke();
             }
         }
 
@@ -154,7 +197,7 @@ namespace MertsToolBox.Settings
                 if (m_DefaultSoftBlockWidth == clamped) return;
 
                 m_DefaultSoftBlockWidth = clamped;
-                OnOptionsChanged?.Invoke();
+                OnToolParametersChanged?.Invoke(3, 1);
             }
         }
 
@@ -169,7 +212,21 @@ namespace MertsToolBox.Settings
                 if (m_DefaultSoftBlockLength == clamped) return;
 
                 m_DefaultSoftBlockLength = clamped;
-                OnOptionsChanged?.Invoke();
+                OnToolParametersChanged?.Invoke(3, 2);
+            }
+        }
+        [SettingsUISection(TAB_SOFTBLOCK, GROUP_DEFAULTS)]
+        [SettingsUISlider(min = 1, max = 10, step = 1f)]
+        public float DefaultSoftBlockBorderRadius
+        {
+            get => m_DefaultSoftBlockBorderRadius;
+            set
+            {
+                float clamped = Math.Clamp(value, 1f, 10f);
+                if (m_DefaultSoftBlockBorderRadius == clamped) return;
+
+                m_DefaultSoftBlockBorderRadius = clamped;
+                OnToolParametersChanged?.Invoke(3, 3);
             }
         }
 
@@ -182,7 +239,6 @@ namespace MertsToolBox.Settings
                 if (m_UseCtrlWheelForSoftBlockBorderRadius == value) return;
 
                 m_UseCtrlWheelForSoftBlockBorderRadius = value;
-                OnOptionsChanged?.Invoke();
             }
         }
 
@@ -190,62 +246,62 @@ namespace MertsToolBox.Settings
         // Grid
         // -------------------------
         [SettingsUISection(TAB_GRID, GROUP_DEFAULTS)]
-        [SettingsUISlider(min = 1, max = 24, step = 1)]
-        public int BlockWidthU
+        [SettingsUISlider(min = 1, max = 48, step = 1)]
+        public int DefaultBlockWidthU
         {
-            get => m_BlockWidthU;
+            get => m_DefaultBlockWidthU;
             set
             {
-                int clamped = Math.Clamp(value, 1, 24);
-                if (m_BlockWidthU == clamped) return;
+                int clamped = Math.Clamp(value, 1, 48);
+                if (m_DefaultBlockWidthU == clamped) return;
 
-                m_BlockWidthU = clamped;
-                OnOptionsChanged?.Invoke();
+                m_DefaultBlockWidthU = clamped;
+                OnToolParametersChanged?.Invoke(4, 1);
+            }
+        }
+
+        [SettingsUISection(TAB_GRID, GROUP_DEFAULTS)]
+        [SettingsUISlider(min = 1, max = 48, step = 1)]
+        public int DefaultBlockLengthU
+        {
+            get => m_DefaultBlockLengthU;
+            set
+            {
+                int clamped = Math.Clamp(value, 1, 48);
+                if (m_DefaultBlockLengthU == clamped) return;
+
+                m_DefaultBlockLengthU = clamped;
+                OnToolParametersChanged?.Invoke(4, 2);
             }
         }
 
         [SettingsUISection(TAB_GRID, GROUP_DEFAULTS)]
         [SettingsUISlider(min = 1, max = 24, step = 1)]
-        public int BlockLengthU
+        public int DefaultColumns
         {
-            get => m_BlockLengthU;
+            get => m_DefaultColumns;
             set
             {
                 int clamped = Math.Clamp(value, 1, 24);
-                if (m_BlockLengthU == clamped) return;
+                if (m_DefaultColumns == clamped) return;
 
-                m_BlockLengthU = clamped;
-                OnOptionsChanged?.Invoke();
+                m_DefaultColumns = clamped;
+                OnToolParametersChanged?.Invoke(4, 3);
             }
         }
 
         [SettingsUISection(TAB_GRID, GROUP_DEFAULTS)]
         [SettingsUISlider(min = 1, max = 24, step = 1)]
-        public int Columns
+        public int DefaultRows
         {
-            get => m_Columns;
+            get => m_DefaultRows;
             set
             {
                 int clamped = Math.Clamp(value, 1, 24);
-                if (m_Columns == clamped) return;
+                if (m_DefaultRows == clamped) return;
 
-                m_Columns = clamped;
-                OnOptionsChanged?.Invoke();
-            }
-        }
-
-        [SettingsUISection(TAB_GRID, GROUP_DEFAULTS)]
-        [SettingsUISlider(min = 1, max = 24, step = 1)]
-        public int Rows
-        {
-            get => m_Rows;
-            set
-            {
-                int clamped = Math.Clamp(value, 1, 24);
-                if (m_Rows == clamped) return;
-
-                m_Rows = clamped;
-                OnOptionsChanged?.Invoke();
+                m_DefaultRows = clamped;
+                OnToolParametersChanged?.Invoke(4, 4);
             }
         }
         [SettingsUISection(TAB_GRID, GROUP_CONTROLS)]
@@ -257,13 +313,13 @@ namespace MertsToolBox.Settings
                 if (m_EnableGridSnap == value) return;
 
                 m_EnableGridSnap = value;
-                OnOptionsChanged?.Invoke();
+                OnSnapOptionsChanged?.Invoke();
             }
         }
         public override void SetDefaults()
         {
-            m_DefaultCircleDiameter = 96;
-            m_UseCtrlWheelForCircleDiameterAdjustment = false;
+            m_DefaultShapeDimension = 96;
+            m_UseCtrlWheelForShapeDimensionAdjustment = false;
 
             m_DefaultHelixDiameter = 96;
             m_DefaultTurns = 3f;
@@ -272,12 +328,13 @@ namespace MertsToolBox.Settings
 
             m_DefaultSoftBlockWidth = 96;
             m_DefaultSoftBlockLength = 192;
+            m_DefaultSoftBlockBorderRadius = 5;
             m_UseCtrlWheelForSoftBlockBorderRadius = false;
 
-            m_BlockWidthU = 6;
-            m_BlockLengthU = 6;
-            m_Columns = 2;
-            m_Rows = 2;
+            m_DefaultBlockWidthU = 6;
+            m_DefaultBlockLengthU = 6;
+            m_DefaultColumns = 2;
+            m_DefaultRows = 2;
             m_EnableGridSnap = false;
         }
     }

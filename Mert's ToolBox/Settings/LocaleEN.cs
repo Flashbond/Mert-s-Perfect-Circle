@@ -19,31 +19,55 @@ namespace MertsToolBox.Settings
             return new Dictionary<string, string>
             {
                 { m_Settings.GetSettingsLocaleID(), "Mert's ToolBox" },
-
-                // Tabs
-                { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_CIRCLE), "Perfect Circle" },
+                // --- Tabs ---
+                { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_GENERAL), "Key Bindings" },
+                { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_ROUNDABOUT), "Perfect Shape" },
                 { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_HELIX), "Procedural Helix" },
                 { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_SOFTBLOCK), "Soft Block" },
                 { m_Settings.GetOptionTabLocaleID(ToolBoxSettings.TAB_GRID), "Smart Grid" },
 
-                // Fallback tab keys
-                { "Settings.TAB[Circle]", "Perfect Circle" },
-                { "Settings.TAB[Helix]", "Procedural Helix" },
-                { "Settings.TAB[Block]", "Soft Block" },
-                { "Settings.TAB[Grid]", "Smart Grid" },
+                // --- Groups ---
+                { m_Settings.GetOptionGroupLocaleID(ToolBoxSettings.GROUP_KEYBINDS), "Global Shortcuts" },
+                { m_Settings.GetOptionGroupLocaleID(ToolBoxSettings.GROUP_DEFAULTS), "Defaults" },
+                { m_Settings.GetOptionGroupLocaleID(ToolBoxSettings.GROUP_CONTROLS), "Controls" },
 
-                // Groups
-                { "Settings.SECTION[Defaults]", "Defaults" },
-                { "Settings.SECTION[Controls]", "Controls" },
+                // --- Key Bindings Map (Genel Başlık) ---
+                { m_Settings.GetBindingMapLocaleID(), "Toolbox Controls" },
+
+                // --- Individual Key Bindings ---
+                { m_Settings.GetBindingKeyLocaleID(ToolBoxSettings.OpenShapeTool), "Open Perfect Shape" },
+                { m_Settings.GetBindingKeyLocaleID(ToolBoxSettings.OpenHelixTool), "Open Procedural Helix" },
+                { m_Settings.GetBindingKeyLocaleID(ToolBoxSettings.OpenSoftBlockTool), "Open Soft Block" },
+                { m_Settings.GetBindingKeyLocaleID(ToolBoxSettings.OpenGridTool), "Open Smart Grid" },
+                { m_Settings.GetBindingKeyLocaleID(ToolBoxSettings.UndoToolParameter), "Undo Parameter Change" },
+                { m_Settings.GetBindingKeyLocaleID(ToolBoxSettings.RedoToolParameter), "Redo Parameter Change" },
+
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.OpenShapeToolKey)), "Open Perfect Shape" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.OpenShapeToolKey)), "Toggles the Perfect Shape tool on or off." },
+
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.OpenHelixToolKey)), "Open Procedural Helix" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.OpenHelixToolKey)), "Toggles the Procedural Helix tool on or off." },
+
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.OpenSoftBlockToolKey)), "Open Soft Block" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.OpenSoftBlockToolKey)), "Toggles the Soft Block tool on or off." },
+
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.OpenGridToolKey)), "Open Smart Grid" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.OpenGridToolKey)), "Toggles the Smart Grid tool on or off." },
+
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UndoToolParameterKey)), "Undo Parameter Change" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UndoToolParameterKey)), "Reverts the last adjustment made to the active tool's parameters." },
+
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.RedoToolParameterKey)), "Redo Parameter Change" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.RedoToolParameterKey)), "Restores the previously undone parameter adjustment." },
 
                 // -------------------------
-                // Circle
+                // Shape
                 // -------------------------
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultCircleDiameter)), "Default Circle Diameter (m)" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultCircleDiameter)), "Sets the starting diameter used when the Circle tool is opened." },
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultShapeDimension)), "Default Shape Dimension (m)" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultShapeDimension)), "Sets the starting dimension used when the Shape tool is opened." },
 
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForCircleDiameterAdjustment)), "Use Ctrl+Wheel for Circle Diameter adjustment" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForCircleDiameterAdjustment)), "Allows the Circle tool diameter to be adjusted with Ctrl+Mouse Wheel. Recommended to turn this off if it conflicts with another binding." },
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForShapeDimensionAdjustment)), "Use Ctrl+Wheel for Dimension adjustment" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForShapeDimensionAdjustment)), "Allows the Shape tool dimension to be adjusted with Ctrl+Mouse Wheel. Recommended to turn this off if it conflicts with another binding." },
 
                 // -------------------------
                 // Helix
@@ -57,8 +81,8 @@ namespace MertsToolBox.Settings
                 { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultClearance)), "Default Clearance (m)" },
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultClearance)), "Sets the default vertical clearance between helix levels." },
 
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForHelixTurnAdjustment)), "Use Ctrl+Wheel for Helix Diameter adjustment" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForHelixTurnAdjustment)), "Allows the Helix tool diameter to be adjusted with Ctrl+Mouse Wheel. Recommended to turn this off if it conflicts with another binding." },
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForHelixTurnAdjustment)), "Use Ctrl+Wheel for Turn adjustment" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForHelixTurnAdjustment)), "Allows the Helix tool turns to be adjusted with Ctrl+Mouse Wheel. Recommended to turn this off if it conflicts with another binding." },
                
                 // -------------------------
                 // Soft Block
@@ -67,7 +91,7 @@ namespace MertsToolBox.Settings
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockWidth)), "Sets the starting width used when the Soft Block tool is opened." },
 
                 { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockLength)), "Default Shape Length (m)" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockLength)), "Sets the starting length used when the SSoft Block tool is opened." },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockLength)), "Sets the starting length used when the Soft Block tool is opened." },
 
                 { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForSoftBlockBorderRadius)), "Use Ctrl+Wheel for border radius adjustment" },
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForSoftBlockBorderRadius)), "Allows the Soft Block border radius to be adjusted with Ctrl+Mouse Wheel. Recommended to turn this off if it conflicts with another binding." },
@@ -75,17 +99,17 @@ namespace MertsToolBox.Settings
                 // -------------------------
                 // Grid
                 // -------------------------
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.BlockWidthU)), "Block Width (U)" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.BlockWidthU)), "Sets the default block width used by the Grid tool, measured in cell units." },
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultBlockWidthU)), "Block Width (U)" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultBlockWidthU)), "Sets the default block width used by the Grid tool, measured in cell units." },
 
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.BlockLengthU)), "Block Depth (U)" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.BlockLengthU)), "Sets the default block depth used by the Grid tool, measured in cell units." },
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultBlockLengthU)), "Block Depth (U)" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultBlockLengthU)), "Sets the default block depth used by the Grid tool, measured in cell units." },
 
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.Columns)), "Columns" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.Columns)), "Sets the default number of columns used by the Grid tool." },
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultColumns)), "Columns" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultColumns)), "Sets the default number of columns used by the Grid tool." },
 
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.Rows)), "Rows" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.Rows)), "Sets the default number of rows used by the Grid tool." },
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultRows)), "Rows" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultRows)), "Sets the default number of rows used by the Grid tool." },
 
                 { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.EnableGridSnap)), "Enable Grid Snap" },
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.EnableGridSnap)), "Enables snap functionality for Grid tool." },

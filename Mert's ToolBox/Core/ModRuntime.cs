@@ -1,7 +1,7 @@
-﻿using System;
+﻿using Colossal.Logging;
+using System;
 using System.Linq;
 using System.Reflection;
-using Colossal.Logging;
 
 namespace MertsToolBox.Core
 {
@@ -13,12 +13,10 @@ namespace MertsToolBox.Core
         {
             log.Info(message);
         }
-
         public static void Warn(string message)
         {
             log.Warn(message);
         }
-
         public static void Error(string message)
         {
             log.Error(message);
@@ -40,19 +38,6 @@ namespace MertsToolBox.Core
 
             return null;
         }
-
-        public static object GetFieldValue(object target, string fieldName)
-        {
-            if (target == null)
-                return null;
-
-            FieldInfo fi = GetFieldRecursive(target.GetType(), fieldName);
-            if (fi == null)
-                return null;
-
-            return fi.GetValue(target);
-        }
-
         public static bool TrySetField(object target, string fieldName, object value)
         {
             if (target == null)
@@ -65,7 +50,6 @@ namespace MertsToolBox.Core
             fi.SetValue(target, value);
             return true;
         }
-
         public static object TryInvokeParameterless(object target, string methodName)
         {
             if (target == null)
@@ -84,43 +68,6 @@ namespace MertsToolBox.Core
             }
 
             return null;
-        }
-        public static bool TryGetFieldValue<T>(object obj, string fieldName, out T value)
-        {
-            value = default;
-
-            if (obj == null)
-                return false;
-
-            try
-            {
-                var field = obj.GetType().GetField(fieldName,
-                    System.Reflection.BindingFlags.Instance |
-                    System.Reflection.BindingFlags.NonPublic |
-                    System.Reflection.BindingFlags.Public);
-
-                if (field == null)
-                    return false;
-
-                object raw = field.GetValue(obj);
-
-                if (raw is T cast)
-                {
-                    value = cast;
-                    return true;
-                }
-
-                if (raw != null)
-                {
-                    value = (T)raw;
-                    return true;
-                }
-            }
-            catch
-            {
-            }
-
-            return false;
         }
     }
 }

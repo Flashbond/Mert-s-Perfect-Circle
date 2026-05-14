@@ -3,7 +3,7 @@
 	<ModId Value="138174" />
 
 	<!--Name of the mod to display to players-->
-	<DisplayName Value="Mert's ToolBox[Beta]" />
+	<DisplayName Value="Mert's ToolBox[RC]" />
 
 	<!--Short description of the mod-->
 	<ShortDescription Value="One tool to shape them all." />
@@ -21,6 +21,12 @@
 	<Screenshot Value="Properties/Screenshot_2.png" />
 	<Screenshot Value="Properties/Screenshot_3.png" />
 	<Screenshot Value="Properties/Screenshot_4.png" />
+	<Screenshot Value="Properties/Screenshot_5.png" />
+	<Screenshot Value="Properties/Screenshot_6.png" />
+	<Screenshot Value="Properties/Screenshot_7.png" />
+	<Screenshot Value="Properties/Screenshot_8.png" />
+	<Screenshot Value="Properties/Screenshot_9.png" />
+	<Screenshot Value="Properties/Screenshot_10.png" />
 	<!--Tags-->
 	<Tag Value="" />
 
@@ -28,7 +34,7 @@
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/merts-perfect-circle-feedback-suggestions-bug-reports.1911521/" />
 
 	<!--Version of the mod-->
-	<ModVersion Value="2.5.2" />
+	<ModVersion Value="2.6.0" />
 
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.5.*" />
@@ -41,11 +47,18 @@
 
 	<!--Change log for new version-->
 	<ChangeLog>
-		* Refurbished UX
+		* Perfect Circle Tool replaced by Perfect Roundabout Tool
+		* Preset System added
+		* Soft Block Tool support for transportation tracks
+		* Procedural Helix Tool support for pedestrian piers
+		* Undo/Redo System added
+		* Keyboard shortcuts added
+		* Bug fix: Menu switch was not persistent while the tool is opened
+		* Bug fix: Sometimes the tool preview might appear far from the pointer
 	</ChangeLog>
 
 	<!--External links-->
-	<ExternalLink Type="github" Url="https://github.com/Flashbond/Mert-s-ToolBox/" />
+	<ExternalLink Type="github" Url="https://github.com/Flashbond/Mert-s-ToolBox/tree/test" />
 	<!-- İstersen YouTube ekle -->
 
 	<!--Supported values Public, Private, Unlisted-->

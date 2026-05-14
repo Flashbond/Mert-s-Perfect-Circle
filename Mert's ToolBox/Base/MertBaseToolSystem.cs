@@ -2,9 +2,12 @@ using Colossal.Entities;
 using Game;
 using Game.Prefabs;
 using Game.Tools;
+using MertsToolBox.Core;
 using MertsToolBox.Management;
-using MertsToolBox.Settings;
+using MertsToolBox.Utilities.Preset;
+using MertsToolBox.Utilities.Undo;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -119,10 +122,12 @@ namespace MertsToolBox
 
             m_SelectedPrefabField = typeof(NetToolSystem).GetField("m_SelectedPrefab", BindingFlags.Instance | BindingFlags.NonPublic);
             m_PrefabField = typeof(NetToolSystem).GetField("m_Prefab", BindingFlags.Instance | BindingFlags.NonPublic);
-
-            ToolBoxSettings.OnOptionsChanged += OnSettingsChanged;
+            if (Mod.settings != null)
+            {
+                Mod.settings.OnSnapOptionsChanged += OnSnapSettingsChanged;
+                Mod.settings.OnToolParametersChanged += RetrieveParametersFromSettings;
+            }
         }
-
         /// <summary>
         /// Executes the main logic loop including input processing, prebaking, and shape handoffs.
         /// </summary>
@@ -161,7 +166,11 @@ namespace MertsToolBox
         /// </summary>
         protected override void OnDestroy()
         {
-            ToolBoxSettings.OnOptionsChanged -= OnSettingsChanged;
+            if (Mod.settings != null)
+            {
+                Mod.settings.OnSnapOptionsChanged -= OnSnapSettingsChanged;
+                Mod.settings.OnToolParametersChanged -= RetrieveParametersFromSettings;
+            }
 
             foreach (var kv in s_StampByRoadEntity)
             {
@@ -203,13 +212,15 @@ namespace MertsToolBox
         /// <summary>
         /// Handles dynamic updates to the tool state when user settings are modified.
         /// </summary>
-        protected virtual void OnSettingsChanged()
+        protected void OnSnapSettingsChanged()
         {
-            if (!ToolEnabled) return;
-
+            if (!ToolEnabled)
+                return;
+ 
             ApplySnapMaskToActiveTool();
             QueuePreviewRebuild();
         }
+        protected virtual void RetrieveParametersFromSettings(int toolIndex, int paramIndex) { }
         #endregion
 
         #region State Management & Handoff
@@ -354,6 +365,38 @@ namespace MertsToolBox
 
             return category;
         }
+        public NetPrefab GetCurrentSelectedNetPrefabForUi()
+        {
+            return TryGetCurrentSelectedRoadPrefab();
+        }
+        public bool IsCurrentTrackLikePrefab()
+        {
+            NetPrefab prefab = TryGetCurrentSelectedRoadPrefab();
+
+            if (prefab == null) return false;
+            
+            string lower = prefab.name?.ToLowerInvariant() ?? string.Empty;
+
+            bool isTrack = prefab is TrackPrefab;
+            bool isTransport =
+                lower.Contains("transport") ||
+                lower.Contains("bus");
+
+            bool result = isTrack || isTransport;
+
+            return result;
+        }
+        public bool IsCurrentPierLikePrefab()
+        {
+            NetPrefab prefab = TryGetCurrentSelectedRoadPrefab();
+            if (prefab == null)
+                return false;
+
+            string lower = prefab.name?.ToLowerInvariant() ?? string.Empty;
+
+            return lower.Contains("pier") ||
+                   lower.Contains("pedestrian");
+        }
         #endregion
 
         #region Mathematical Utilities
@@ -417,6 +460,88 @@ namespace MertsToolBox
             if (stepSize <= 0 || direction == 0) return currentValue;
             if (direction > 0) return ((currentValue / stepSize) + 1) * stepSize;
             return ((currentValue - 1) / stepSize) * stepSize;
+        }
+        #endregion
+        #region Preset Sytem
+        public virtual MertToolPreset CreatePresetSnapshot()
+        {
+            return null;
+        }
+
+        public virtual void ApplyPresetSnapshot(MertToolPreset preset)
+        {
+        }
+        protected static string SanitizeFileName(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return "Unnamed";
+
+            char[] invalidChars = Path.GetInvalidFileNameChars();
+
+            foreach (char c in invalidChars)
+            {
+                raw = raw.Replace(c, '_');
+            }
+
+            // Optional cleanup polish
+            raw = raw.Replace(" ", "_");
+
+            // Collapse accidental duplicates
+            while (raw.Contains("__"))
+            {
+                raw = raw.Replace("__", "_");
+            }
+
+            return raw.Trim('_');
+        }
+        #endregion
+
+        #region Undo System
+        private readonly MertToolUndoHistory m_UndoHistory = new();
+
+        protected void ClearUndoHistory()
+        {
+            m_UndoHistory.Clear();
+        }
+
+        protected void RegisterUndoForButton()
+        {
+            m_UndoHistory.RegisterButton(CreateUndoSnapshot);
+        }
+
+        protected void RegisterUndoForWheel()
+        {
+            m_UndoHistory.RegisterWheel(CreateUndoSnapshot);
+        }
+
+        public void BeginSliderUndoTransaction()
+        {
+            m_UndoHistory.BeginSlider(CreateUndoSnapshot);
+        }
+
+        public void EndSliderUndoTransaction()
+        {
+            m_UndoHistory.EndSlider();
+        }
+
+        public void UndoToolParameter()
+        {
+            m_UndoHistory.Undo(CreateUndoSnapshot, ApplyUndoSnapshot);
+        }
+
+        public void RedoToolParameter()
+        {
+            m_UndoHistory.Redo(CreateUndoSnapshot, ApplyUndoSnapshot);
+        }
+
+        public virtual MertToolPreset CreateUndoSnapshot()
+        {
+            return CreatePresetSnapshot();
+        }
+
+        public virtual void ApplyUndoSnapshot(MertToolPreset snapshot)
+        {
+            ApplyPresetSnapshot(snapshot);
         }
         #endregion
     }

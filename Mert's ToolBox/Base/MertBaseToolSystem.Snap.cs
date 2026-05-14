@@ -56,8 +56,6 @@ namespace MertsToolBox
                     break;
             }
 
-            ApplySnapMaskToActiveTool();
-
             if (ToolEnabled)
             {
                 QueuePreviewRebuild();
@@ -99,19 +97,10 @@ namespace MertsToolBox
 
             if (m_ToolSystem.activeTool == m_ObjectToolSystem)
             {
-                if (m_ObjectToolSystem.selectedSnap != targetSnap)
-                {
-                    m_ObjectToolSystem.selectedSnap = targetSnap;
-                }
-
-                SetObjectToolPrivateField("m_SelectedSnap", targetSnap);
+                m_ObjectToolSystem.selectedSnap = targetSnap;
                 return;
             }
-
-            if (m_ToolSystem.activeTool.selectedSnap != targetSnap)
-            {
-                m_ToolSystem.activeTool.selectedSnap = targetSnap;
-            }
+            m_ToolSystem.activeTool.selectedSnap = targetSnap;
         }
         #endregion
     }

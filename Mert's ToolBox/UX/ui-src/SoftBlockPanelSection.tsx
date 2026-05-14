@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { bindValue, trigger, useValue } from "cs2/api";
+import { trigger, call, bindValue, useValue } from "cs2/api";
 import { MertSlider } from "./utils/MertSlider";
-import { formatMeters, formatSmart } from "./utils/Formatters";
+import { formatMeters } from "./utils/Formatters";
 import { VanillaResolver } from "./utils/VanilliaResolver";
-import { parseActiveTool, ActiveTool } from "./utils/ActiveTool";
+import { parseActiveTool } from "./utils/ActiveTool";
+import { MertListBox } from './utils/MertListBox';
+import StraightIcon from "./Icons/StraightCorner.svg";
 
 // --- GLOBAL BINDINGS (C# TO UI) ---
 const activeToolMode$ = bindValue<string>("MertsToolBox", "ActiveTool", "None|None");
@@ -19,6 +21,9 @@ const softBlockLengthStepArray$ = bindValue<number[]>("MertsToolBox", "SoftBlock
 
 const borderRadius$ = bindValue<number>("MertsToolBox", "GetBorderRadius");
 
+const softBlockStraightCorners$ = bindValue<boolean>("MertsToolBox", "SoftBlockStraightCorners", false);
+const softBlockStraightCornersSupported$ = bindValue<boolean>("MertsToolBox", "SoftBlockStraightCornersSupported", true);
+
 const elevationValue$ = bindValue<number>("MertsToolBox", "ElevationValue");
 const elevationStepValue$ = bindValue<number>("MertsToolBox", "ElevationStepValue");
 const elevationStepArray$ = bindValue<number[]>("MertsToolBox", "ElevationStepArray");
@@ -26,6 +31,8 @@ const elevationStepArray$ = bindValue<number[]>("MertsToolBox", "ElevationStepAr
 const isSnapGeometryActive$ = bindValue<boolean>("MertsToolBox", "IsSnapGeometryActive");
 const isSnapNetSideActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetSideActive");
 const isSnapNetAreaActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetAreaActive");
+
+const presetList$ = bindValue<string>("MertsToolBox", "PresetList", "");
 
 // --- COMPONENT DEFINITION ---
 export const SoftBlockPanelSection = () => {
@@ -38,6 +45,8 @@ export const SoftBlockPanelSection = () => {
     const rawShow: boolean = isToolBoxAllowed && activeTool.id === "SoftBlock";
     const [delayedShow, setDelayedShow] = useState(false);
 
+    const [presetPanelOpen, setPresetPanelOpen] = useState(false);
+
     useEffect(() => {
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -46,6 +55,7 @@ export const SoftBlockPanelSection = () => {
         } else {
             timeoutId = setTimeout(() => {
                 setDelayedShow(false);
+                setPresetPanelOpen(false);
             }, 150);
         }
 
@@ -65,6 +75,9 @@ export const SoftBlockPanelSection = () => {
 
     const borderRadius = useValue(borderRadius$) as number;
 
+    const straightCorners = useValue(softBlockStraightCorners$) as boolean;
+    const straightCornersSupported = useValue(softBlockStraightCornersSupported$) as boolean;
+
     const elevationValue = useValue(elevationValue$) as number;
     const elevationStepValue = useValue(elevationStepValue$) as number;
     const elevationStepValues = useValue(elevationStepArray$) as number[];
@@ -72,6 +85,13 @@ export const SoftBlockPanelSection = () => {
     const isSnapGeometryActive = useValue(isSnapGeometryActive$) as boolean;
     const isSnapNetSideActive = useValue(isSnapNetSideActive$) as boolean;
     const isSnapNetAreaActive = useValue(isSnapNetAreaActive$) as boolean;
+
+    const presetListRaw = useValue(presetList$) as string;
+
+    const presetList = (presetListRaw || "")
+        .split(";")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
 
     // --- RENDER ---
     if (!delayedShow) return null;
@@ -145,7 +165,7 @@ export const SoftBlockPanelSection = () => {
                 />
             </VanillaResolver.instance.Section>
 
-            {/* N VALUE (CURVATURE) ROW */}
+            {/* BORDER RADIUS ROW */}
             <VanillaResolver.instance.Section title="Border Radius">
                 <MertSlider
                     min={1}
@@ -164,6 +184,18 @@ export const SoftBlockPanelSection = () => {
                     formatValue={(v) => v.toFixed(1)}
                 />
             </VanillaResolver.instance.Section>
+
+            <VanillaResolver.instance.Section title="Straight Corners">
+                <VanillaResolver.instance.ToolButton
+                    src={StraightIcon}
+                    selected={straightCorners}
+                    disabled={!straightCornersSupported}
+                    tooltip={straightCornersSupported ? "Straight corners" : "Not supported for tracks"}
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    onSelect={() => trigger("MertsToolBox", "SoftBlockToggleStraightCorners")}
+                />
+            </VanillaResolver.instance.Section>
+
 
             {/* ELEVATION ROW */}
             <VanillaResolver.instance.Section title="Elevation">
@@ -205,7 +237,7 @@ export const SoftBlockPanelSection = () => {
                 />
 
                 <VanillaResolver.instance.ToolButton
-                    src="Media/Tools/Snap Options/NetSide.svg"
+                    src="Media/Tools/Snap Options/NetSide.svg" 
                     selected={isSnapNetSideActive}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
                     onSelect={() => trigger("MertsToolBox", "SoftBlockToggleSnap", "NetSide")}
@@ -220,6 +252,30 @@ export const SoftBlockPanelSection = () => {
                     tooltip={`Net Area`}
                 />
             </VanillaResolver.instance.Section>
+
+            {/* MERT LISTBOX (KLASİK) */}
+            <MertListBox
+                items={presetList}
+                isOpen={presetPanelOpen}
+                onToggleOpen={() => {
+                    setPresetPanelOpen(!presetPanelOpen);
+                    if (!presetPanelOpen) trigger("MertsToolBox", "RefreshPresetList");
+                }}
+                onSave={async () => {
+                    const success = await call<boolean>("MertsToolBox", "SavePreset", activeTool.id);
+                    if (success) {
+                        trigger("MertsToolBox", "RefreshPresetList");
+                    }
+                    return success;
+                }}
+                onSelect={(presetName) => {
+                    trigger("MertsToolBox", "LoadPreset", presetName);
+                    setPresetPanelOpen(false);
+                }}
+                onDelete={(presetName) => {
+                    trigger("MertsToolBox", "DeletePreset", presetName);
+                }}
+            />
         </div>
     );
 };

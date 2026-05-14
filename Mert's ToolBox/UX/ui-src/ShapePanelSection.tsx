@@ -1,42 +1,43 @@
-import React, { useEffect, useState } from "react";
-import { bindValue, trigger, useValue } from "cs2/api";
-import { MertSlider } from "./utils/MertSlider";
+﻿import React, { useEffect, useState } from "react";
+import { trigger, call, bindValue, useValue } from "cs2/api";
 import { formatMeters, formatSmart } from "./utils/Formatters";
 import { VanillaResolver } from "./utils/VanilliaResolver";
-import { parseActiveTool, ActiveTool } from "./utils/ActiveTool";
+import { parseActiveTool } from "./utils/ActiveTool";
+import { MertListBox } from './utils/MertListBox';
 
-// --- GLOBAL BINDINGS (C# TO UI) ---
 const activeToolMode$ = bindValue<string>("MertsToolBox", "ActiveTool", "None|None");
 const toolBoxVisible$ = bindValue<boolean>("MertsToolBox", "IsToolBoxAllowed");
 
-const superEllipseWidth$ = bindValue<number>("MertsToolBox", "SuperEllipseWidth");
-const superEllipseWidthStepValue$ = bindValue<number>("MertsToolBox", "SuperEllipseWidthStepValue");
-const superEllipseWidthStepArray$ = bindValue<number[]>("MertsToolBox", "SuperEllipseWidthStepArray");
+// Dimension Bindings
+const shapeDimension$ = bindValue<number>("MertsToolBox", "ShapeDimension");
+const shapeDimensionStepValue$ = bindValue<number>("MertsToolBox", "ShapeDimensionStepValue");
+const shapeDimensionStepArray$ = bindValue<number[]>("MertsToolBox", "ShapeDimensionStepArray");
 
-const superEllipseLength$ = bindValue<number>("MertsToolBox", "SuperEllipseLength");
-const superEllipseLengthStepValue$ = bindValue<number>("MertsToolBox", "SuperEllipseLengthStepValue");
-const superEllipseLengthStepArray$ = bindValue<number[]>("MertsToolBox", "SuperEllipseLengthStepArray");
+// Shape Bindings
+const shapeShapeName$ = bindValue<string>("MertsToolBox", "ShapeShapeName", "Circle");
 
-const superEllipseN$ = bindValue<number>("MertsToolBox", "SuperEllipseN");
-
+// Diğer Bindings...
 const elevationValue$ = bindValue<number>("MertsToolBox", "ElevationValue");
 const elevationStepValue$ = bindValue<number>("MertsToolBox", "ElevationStepValue");
 const elevationStepArray$ = bindValue<number[]>("MertsToolBox", "ElevationStepArray");
-
 const isSnapGeometryActive$ = bindValue<boolean>("MertsToolBox", "IsSnapGeometryActive");
 const isSnapNetSideActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetSideActive");
 const isSnapNetAreaActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetAreaActive");
+const presetList$ = bindValue<string>("MertsToolBox", "PresetList", "");
 
 // --- COMPONENT DEFINITION ---
-export const SuperEllipsePanelSection = () => {
+export const ShapePanelSection = () => {
 
     // --- VISIBILITY & LIFECYCLE ---
+
     const activeToolRaw = useValue(activeToolMode$) as string;
     const activeTool = parseActiveTool(activeToolRaw);
 
     const isToolBoxAllowed = useValue(toolBoxVisible$) as boolean;
-    const rawShow: boolean = isToolBoxAllowed && activeTool.id === "Ellipse";
+    const rawShow: boolean = isToolBoxAllowed && activeTool.id === "Shape";
     const [delayedShow, setDelayedShow] = useState(false);
+
+    const [presetPanelOpen, setPresetPanelOpen] = useState(false);
 
     useEffect(() => {
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -46,6 +47,7 @@ export const SuperEllipsePanelSection = () => {
         } else {
             timeoutId = setTimeout(() => {
                 setDelayedShow(false);
+                setPresetPanelOpen(false);
             }, 150);
         }
 
@@ -55,15 +57,12 @@ export const SuperEllipsePanelSection = () => {
     }, [rawShow]);
 
     // --- DATA BINDING EVALUATION ---
-    const width = useValue(superEllipseWidth$) as number;
-    const widthStepValue = useValue(superEllipseWidthStepValue$) as number;
-    const widthStepValues = useValue(superEllipseWidthStepArray$) as number[];
+    const dimension = useValue(shapeDimension$) as number;
+    const dimensionStepValue = useValue(shapeDimensionStepValue$) as number;
+    const dimensionStepValues = useValue(shapeDimensionStepArray$) as number[];
 
-    const length = useValue(superEllipseLength$) as number;
-    const lengthStepValue = useValue(superEllipseLengthStepValue$) as number;
-    const lengthStepValues = useValue(superEllipseLengthStepArray$) as number[];
-
-    const nValue = useValue(superEllipseN$) as number;
+    // Şekil İsmi (YENİ)
+    const shapeName = useValue(shapeShapeName$) as string;
 
     const elevationValue = useValue(elevationValue$) as number;
     const elevationStepValue = useValue(elevationStepValue$) as number;
@@ -73,88 +72,78 @@ export const SuperEllipsePanelSection = () => {
     const isSnapNetSideActive = useValue(isSnapNetSideActive$) as boolean;
     const isSnapNetAreaActive = useValue(isSnapNetAreaActive$) as boolean;
 
+    const presetListRaw = useValue(presetList$) as string;
+
+    const presetList = (presetListRaw || "")
+        .split(";")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+    
     // --- RENDER ---
     if (!delayedShow) return null;
 
     return (
         <div
-            className={`superellipse-panel-container`}
+            className={`shape-panel-container`}
             onMouseDown={(e) => { e.stopPropagation(); }}
             onContextMenu={(e) => { e.stopPropagation(); }}
             style={{ display: "flex", flexDirection: "column" }}
         >
-            <h3 className={'panel-header'} style={{
-                paddingLeft: "12rem"
-            }}>{activeTool.name}</h3>
+          
+            <div className={'panel-header'} style={{
+                fontSize: "1.1em",
+                fontWeight: 600,
+                padding: "2rem 10rem"
+            }}>{activeTool.name}</div>
 
-            {/* WIDTH ROW */}
-            <VanillaResolver.instance.Section title="Width">
+            {/* SHAPE ROW (YENİ EKLENEN SATIR) */}
+            <VanillaResolver.instance.Section title="Shape">
                 <VanillaResolver.instance.ToolButton
                     src="Media/Glyphs/ThickStrokeArrowDown.svg"
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "SuperEllipseWidthDown")}
+                    disabled={shapeName === "Triangle"}
+                    onSelect={() => trigger("MertsToolBox", "ShapeSidesDown")}
                 />
 
-                <div className={VanillaResolver.instance.mouseToolOptionsTheme["number-field"]}>
-                    {formatMeters(width)}
+                <div className={VanillaResolver.instance.mouseToolOptionsTheme["number-field"]} style={{ width: "33.33%" }}>
+                    {shapeName}
                 </div>
 
                 <VanillaResolver.instance.ToolButton
                     src="Media/Glyphs/ThickStrokeArrowUp.svg"
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "SuperEllipseWidthUp")}
-                />
-                <VanillaResolver.instance.StepToolButton
-                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    selectedValue={widthStepValue}
-                    values={widthStepValues}
-                    tooltip={`${widthStepValue}`}
-                    onSelect={(val) => {
-                        trigger("MertsToolBox", "SuperEllipseWidthStep", val);
-                    }}
+                    disabled={shapeName === "Circle"}
+                    onSelect={() => trigger("MertsToolBox", "ShapeSidesUp")}
                 />
             </VanillaResolver.instance.Section>
 
-            {/* LENGTH ROW */}
-            <VanillaResolver.instance.Section title="Length">
+            {/* DIAMETER ROW */}
+            <VanillaResolver.instance.Section title="Dimension">
                 <VanillaResolver.instance.ToolButton
                     src="Media/Glyphs/ThickStrokeArrowDown.svg"
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "SuperEllipseLengthDown")}
+                    onSelect={() => trigger("MertsToolBox", "ShapeDimensionDown")}
                 />
 
                 <div className={VanillaResolver.instance.mouseToolOptionsTheme["number-field"]}>
-                    {formatMeters(length)}
+                    {formatMeters(dimension)}
                 </div>
 
                 <VanillaResolver.instance.ToolButton
                     src="Media/Glyphs/ThickStrokeArrowUp.svg"
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "SuperEllipseLengthUp")}
+                    onSelect={() => trigger("MertsToolBox", "ShapeDimensionUp")}
                 />
+
                 <VanillaResolver.instance.StepToolButton
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    selectedValue={lengthStepValue}
-                    values={lengthStepValues}
-                    tooltip={`${lengthStepValue}`}
+                    tooltip={`${formatSmart(dimensionStepValue)}`}
+                    values={dimensionStepValues}
+                    selectedValue={dimensionStepValue}
                     onSelect={(val) => {
-                        trigger("MertsToolBox", "SuperEllipseLengthStep", val);
+                        trigger("MertsToolBox", "ShapeDimensionStep", val);
                     }}
                 />
-            </VanillaResolver.instance.Section>
-
-            {/* N VALUE (CURVATURE) ROW */}
-            <VanillaResolver.instance.Section title="N Value">
-                    <MertSlider
-                        min={1}
-                        max={15}
-                        step={0.1}
-                        value={nValue}
-                        onChange={(newVal) => {
-                            trigger("MertsToolBox", "SuperEllipseSetN", newVal);
-                        }}
-                        formatValue={(v) => v.toFixed(1)}
-                    />
             </VanillaResolver.instance.Section>
 
             {/* ELEVATION ROW */}
@@ -192,7 +181,7 @@ export const SuperEllipsePanelSection = () => {
                     src="Media/Tools/Snap Options/ExistingGeometry.svg"
                     selected={isSnapGeometryActive}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "SuperEllipseToggleSnap", "Geometry")}
+                    onSelect={() => trigger("MertsToolBox", "ToggleShapeSnap", "Geometry")}
                     tooltip={`Existing Geometry`}
                 />
 
@@ -200,7 +189,7 @@ export const SuperEllipsePanelSection = () => {
                     src="Media/Tools/Snap Options/NetSide.svg"
                     selected={isSnapNetSideActive}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "SuperEllipseToggleSnap", "NetSide")}
+                    onSelect={() => trigger("MertsToolBox", "ToggleShapeSnap", "NetSide")}
                     tooltip={`Net Side`}
                 />
 
@@ -208,10 +197,34 @@ export const SuperEllipsePanelSection = () => {
                     src="Media/Tools/Snap Options/NetArea.svg"
                     selected={isSnapNetAreaActive}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "SuperEllipseToggleSnap", "NetArea")}
+                    onSelect={() => trigger("MertsToolBox", "ToggleShapeSnap", "NetArea")}
                     tooltip={`Net Area`}
                 />
             </VanillaResolver.instance.Section>
+
+            {/* MERT LISTBOX (KLASİK) */}
+            <MertListBox
+                items={presetList}
+                isOpen={presetPanelOpen}
+                onToggleOpen={() => {
+                    setPresetPanelOpen(!presetPanelOpen);
+                    if (!presetPanelOpen) trigger("MertsToolBox", "RefreshPresetList");
+                }}
+                onSave={async () => {
+                    const success = await call<boolean>("MertsToolBox", "SavePreset", activeTool.id);
+                    if (success) {
+                        trigger("MertsToolBox", "RefreshPresetList");
+                    }
+                    return success;
+                }}
+                onSelect={(presetName) => {
+                    trigger("MertsToolBox", "LoadPreset", presetName);
+                    setPresetPanelOpen(false);
+                }}
+                onDelete={(presetName) => {
+                    trigger("MertsToolBox", "DeletePreset", presetName);
+                }}
+            />
         </div>
     );
 };

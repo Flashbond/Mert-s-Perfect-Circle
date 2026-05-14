@@ -1,6 +1,8 @@
 using Game.Prefabs;
 using MertsToolBox.Core;
 using MertsToolBox.Management;
+using MertsToolBox.Utilities.Preset;
+using System.Collections.Generic;
 using Unity.Mathematics;
 
 namespace MertsToolBox.Systems
@@ -20,6 +22,8 @@ namespace MertsToolBox.Systems
         public readonly float[] m_ClearanceSteps = new float[] { 2f, 1f, 0.50f, 0.25f };
         private int m_CurrentClearanceStepIndex = 0;
 
+        private const float GLOBAL_MAX_SLOPE = 0.15f;
+
         private int m_PendingDiameterChange = 0;
         private int m_TargetDiameterStep = -1;
         private int m_PendingTurnChange = 0;
@@ -35,6 +39,56 @@ namespace MertsToolBox.Systems
         public override string ToolId => "Helix";
         public override string ToolName => "Procedural Helix";
 
+        #region Preset System
+        public override MertToolPreset CreatePresetSnapshot()
+        {
+            NetPrefab prefab = TryGetCurrentSelectedRoadPrefab();
+            string prefabName = prefab?.name ?? "UnknownRoad";
+
+            int diameter = GetCurrentDiameter();
+            float turns = GetCurrentTurns();
+            float clearance = GetCurrentClearance();
+
+            return new MertToolPreset
+            {
+                ToolId = ToolId,
+                ToolName = ToolName,
+                PrefabName = prefabName,
+
+                DisplayName = SanitizeFileName(
+                    $"{ToolId}_{prefabName}_Diameter{diameter}m_Turn{turns:0.0}_Clearance{clearance:0.0}m_{(m_IsClockwise ? "CW" : "CCW")}"
+                ),
+
+                Values = new Dictionary<string, float>
+                {
+                    ["Diameter"] = diameter,
+                    ["Turns"] = turns,
+                    ["Clearance"] = clearance,
+                    ["Clockwise"] = m_IsClockwise ? 1f : 0f
+                }
+            };
+        }
+
+        public override void ApplyPresetSnapshot(MertToolPreset preset)
+        {
+            if (preset?.Values == null)
+                return;
+
+            if (preset.Values.TryGetValue("Diameter", out float diameter))
+                SetCurrentDiameter((int)diameter);
+
+            if (preset.Values.TryGetValue("Turns", out float turns))
+                SetCurrentTurns(turns);
+
+            if (preset.Values.TryGetValue("Clearance", out float clearance))
+                SetCurrentClearance(clearance);
+
+            if (preset.Values.TryGetValue("Clockwise", out float clockwise))
+                m_IsClockwise = clockwise > 0.5f;
+
+            QueuePreviewRebuild();
+        }
+        #endregion
         /// <summary>
         /// Indicates whether this tool allows overlapping placements.
         /// </summary>
@@ -52,22 +106,38 @@ namespace MertsToolBox.Systems
         #endregion
 
         #region Input Queuing & State
-        protected override void OnSettingsChanged()
+        protected override void RetrieveParametersFromSettings(int toolIndex, int paramIndex)
         {
-            if (Mod.settings != null)
-            {
-                m_CurrentSessionDiameter = Mod.settings.DefaultHelixDiameter;
-                m_CurrentSessionTurns = Mod.settings.DefaultTurns;
-                m_CurrentSessionClearance = Mod.settings.DefaultClearance;
-            }
+            if (toolIndex != 2)
+                return;
 
-            base.OnSettingsChanged();
+            switch (paramIndex)
+            {
+                case 1:
+                    m_CurrentSessionDiameter = Mod.settings.DefaultHelixDiameter;
+                    break;
+
+                case 2:
+                    m_CurrentSessionTurns = Mod.settings.DefaultTurns;
+                    break;
+
+                case 3:
+                    m_CurrentSessionClearance = Mod.settings.DefaultClearance;
+                    break;
+            }
+            
+            QueuePreviewRebuild();
         }
+
         public bool GetIsClockwise() => m_IsClockwise;
         /// <summary>
         /// Queues a change in the diameter based on the given direction.
         /// </summary>
-        public void QueueDiameterChange(int direction) => m_PendingDiameterChange += direction;
+        public void QueueDiameterChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingDiameterChange += direction;
+        }
 
         /// <summary>
         /// Queues a step cycle for the diameter adjustment.
@@ -77,7 +147,11 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Queues a change in the number of turns based on the given direction.
         /// </summary>
-        public void QueueTurnChange(int direction) => m_PendingTurnChange += direction;
+        public void QueueTurnChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingTurnChange += direction;
+        }
 
         /// <summary>
         /// Queues a step cycle for the turn adjustment.
@@ -87,7 +161,11 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Queues a change in the clearance based on the given direction.
         /// </summary>
-        public void QueueClearanceChange(int direction) => m_PendingClearanceChange += direction;
+        public void QueueClearanceChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingClearanceChange += direction;
+        }
 
         /// <summary>
         /// Queues a step cycle for the clearance adjustment.
@@ -125,26 +203,37 @@ namespace MertsToolBox.Systems
         /// Retrieves the current session clearance, applying default settings if uninitialized.
         /// </summary>
         public float GetCurrentClearance() { if (m_CurrentSessionClearance < 0) m_CurrentSessionClearance = Mod.settings != null ? Mod.settings.DefaultClearance : 8f; return m_CurrentSessionClearance; }
-        
+
         /// <summary>
         /// Sets turn direction.
         /// </summary>
         public void QueueToggleDirection()
         {
+            RegisterUndoForButton();
+
             m_IsClockwise = !m_IsClockwise;
             QueuePreviewRebuild();
+        }
+        private float GetMaxSlopeLimit()
+        {
+            return GLOBAL_MAX_SLOPE;
         }
         /// <summary>
         /// Calculates the minimum allowed diameter based on the road prefab width and clearance.
         /// </summary>
         private int GetMinimumAllowedDiameter()
         {
-            float collisionMin = m_CurrentRoadWidth * 3f;
+            float multiplier = m_CurrentRoadWidth * 3f;
 
-            float clearance = GetCurrentClearance();
-            float slopeMin = (clearance / (math.PI * 0.25f)) + m_CurrentRoadWidth;
-
-            return (int)math.ceil(math.max(collisionMin, slopeMin));
+            return (int)math.ceil(multiplier);
+        }
+        private float GetMinimumAllowedClearance()
+        {
+            return IsCurrentPierLikePrefab() ? 2.5f : 8.0f;
+        }
+        private float GetMaximumAllowedClearance()
+        {
+            return IsCurrentPierLikePrefab() ? 5.0f : 15.0f;
         }
         #endregion
 
@@ -167,6 +256,7 @@ namespace MertsToolBox.Systems
         protected override void ProcessToolInput()
         {
             if (!ToolEnabled) return;
+            MertToolState.HelixPierElevationBypassRequested = ToolEnabled && IsCurrentPierLikePrefab();
             if (m_TargetDiameterStep != -1)
             {
                 m_CurrentDiameterStepIndex = GetIndexFromValue(
@@ -205,7 +295,11 @@ namespace MertsToolBox.Systems
                 UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.ctrlKey.isPressed)
             {
                 int scrollDir = GetScrollDirection();
-                if (scrollDir != 0) SetCurrentTurns(GetCurrentTurns() + (scrollDir * 0.125f));
+                if(scrollDir != 0)
+{
+                    RegisterUndoForWheel();
+                    SetCurrentTurns(GetCurrentTurns() + (scrollDir * 0.125f));
+                }
             }
         }
 
@@ -270,8 +364,14 @@ namespace MertsToolBox.Systems
         /// </summary>
         private void SetCurrentClearance(float clearance)
         {
-            float clamped = math.clamp(clearance, 8.0f, 15f);
-            if (math.abs(m_CurrentSessionClearance - clamped) < 0.001f) return;
+            float clamped = math.clamp(
+                clearance,
+                GetMinimumAllowedClearance(),
+                GetMaximumAllowedClearance()
+            );
+
+            if (math.abs(m_CurrentSessionClearance - clamped) < 0.001f)
+                return;
 
             m_CurrentSessionClearance = clamped;
             QueuePreviewRebuild();
@@ -279,24 +379,50 @@ namespace MertsToolBox.Systems
         #endregion
 
         #region Geometry Generation
+        private void OptimizeAccordingToMaxSlopeLimit()
+        {
+            float maxS = GetMaxSlopeLimit();
+            float pi = math.PI;
+
+            float minD = (float)GetMinimumAllowedDiameter();
+            float minH = GetMinimumAllowedClearance();
+            float maxH = GetMaximumAllowedClearance();
+
+            float d = (float)m_CurrentSessionDiameter;
+            float h = m_CurrentSessionClearance;
+
+            float requiredD = h / (pi * maxS);
+            if (d < requiredD)
+            {
+                d = math.max(d, (float)math.ceil(requiredD));
+            }
+
+            float allowedMaxH = d * pi * maxS;
+            if (h > allowedMaxH)
+            {
+                h = math.max(minH, allowedMaxH);
+            }
+
+            d = math.max(d, minD);
+            h = math.clamp(h, minH, maxH);
+
+            m_CurrentSessionDiameter = (int)d;
+            m_CurrentSessionClearance = h;
+        }
         /// <summary>
         /// Attempts to generate the sub-networks and cells for the helix geometry.
         /// </summary>
         protected override bool TryGenerateGeometry(NetPrefab roadPrefab, out ObjectSubNetInfo[] subNets, out int widthCells, out int depthCells, out float costElevation)
         {
-            int minAllowed = GetMinimumAllowedDiameter();
-            if (m_CurrentSessionDiameter < minAllowed)
-            {
-                m_CurrentSessionDiameter = minAllowed;
-            }
+            OptimizeAccordingToMaxSlopeLimit();
 
-            subNets = null; widthCells = 0; depthCells = 0; costElevation = 0f;
+            subNets = null; widthCells =depthCells = 0; costElevation = 0f;
 
             float buildRadius = (m_CurrentSessionDiameter - m_CurrentRoadWidth) * 0.5f;
 
             if (buildRadius < m_CurrentRoadWidth) return false;
-
-            int segments = (int)math.ceil(m_CurrentSessionTurns * 8f);
+            float turns = math.max(1f, m_CurrentSessionTurns);
+            int segments = math.max(2, (int)math.ceil(turns * 8f));
             float baseElevation = GetCurrentNetToolElevation();
 
             subNets = BuildHelixSubNets(roadPrefab, buildRadius, segments, baseElevation, m_CurrentSessionClearance, m_CurrentSessionTurns);
@@ -311,7 +437,10 @@ namespace MertsToolBox.Systems
         /// </summary>
         private ObjectSubNetInfo[] BuildHelixSubNets(NetPrefab roadPrefab, float radius, int segments, float startElevation, float clearance, float totalTurns)
         {
+            segments = math.max(8, segments);
+            totalTurns = math.max(2f, totalTurns);
             ObjectSubNetInfo[] result = new ObjectSubNetInfo[segments];
+
             float stepRadian = (totalTurns * math.PI * 2f) / segments;
             float stepHeight = (clearance * totalTurns) / segments;
             float tangentLength = radius * math.tan(stepRadian / 4f) * (4f / 3f);
@@ -342,6 +471,7 @@ namespace MertsToolBox.Systems
             {
                 result[i] = new ObjectSubNetInfo
                 {
+
                     m_NetPrefab = roadPrefab,
                     m_BezierCurve = new Colossal.Mathematics.Bezier4x3(
                         points[i],
@@ -352,6 +482,7 @@ namespace MertsToolBox.Systems
                     m_NodeIndex = new int2(i, i + 1),
                     m_ParentMesh = new int2(-1, -1)
                 };
+
             }
             return result;
         }

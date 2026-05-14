@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { bindValue, trigger, useValue } from "cs2/api";
+import { trigger, call, bindValue, useValue } from "cs2/api";
 import alternatingIcon from "./Icons/Alternating.svg";
 import orientationIcon from "./Icons/Orientation.svg";
 import { formatMeters, formatUnits, formatSmart } from "./utils/Formatters";
 import { VanillaResolver } from "./utils/VanilliaResolver";
-import { parseActiveTool, ActiveTool } from "./utils/ActiveTool";
+import { parseActiveTool } from "./utils/ActiveTool";
+import { MertListBox } from './utils/MertListBox';
 
 // --- GLOBAL BINDINGS (C# TO UI) ---
 const activeToolMode$ = bindValue<string>("MertsToolBox", "ActiveTool", "None|None");
@@ -29,6 +30,9 @@ const isSnapNetAreaActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetAreaAc
 
 const gridIsOneWaySupported$ = bindValue<boolean>("MertsToolBox", "GridIsOneWaySupported");
 
+const presetList$ = bindValue<string>("MertsToolBox", "PresetList", "");
+
+
 // --- COMPONENT DEFINITION ---
 export const GridPanelSection = () => {
 
@@ -40,6 +44,8 @@ export const GridPanelSection = () => {
     const rawShow: boolean = isToolBoxAllowed && activeTool.id === "Grid";
     const [delayedShow, setDelayedShow] = useState(false);
 
+    const [presetPanelOpen, setPresetPanelOpen] = useState(false);
+
     useEffect(() => {
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -48,6 +54,7 @@ export const GridPanelSection = () => {
         } else {
             timeoutId = setTimeout(() => {
                 setDelayedShow(false);
+                setPresetPanelOpen(false);
             }, 150);
         }
 
@@ -76,6 +83,13 @@ export const GridPanelSection = () => {
     const isSnapGeometryActive = useValue(isSnapGeometryActive$) as boolean;
     const isSnapNetSideActive = useValue(isSnapNetSideActive$) as boolean;
     const isSnapNetAreaActive = useValue(isSnapNetAreaActive$) as boolean;
+
+    const presetListRaw = useValue(presetList$) as string;
+
+    const presetList = (presetListRaw || "")
+        .split(";")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
 
     // --- RENDER ---
     if (!delayedShow) return null;
@@ -247,6 +261,31 @@ export const GridPanelSection = () => {
                     />
                 </VanillaResolver.instance.Section>
             )}
+
+
+            {/* MERT LISTBOX (KLASİK) */}
+            <MertListBox
+                items={presetList}
+                isOpen={presetPanelOpen}
+                onToggleOpen={() => {
+                    setPresetPanelOpen(!presetPanelOpen);
+                    if (!presetPanelOpen) trigger("MertsToolBox", "RefreshPresetList");
+                }}
+                onSave={async () => {
+                    const success = await call<boolean>("MertsToolBox", "SavePreset", activeTool.id);
+                    if (success) {
+                        trigger("MertsToolBox", "RefreshPresetList");
+                    }
+                    return success;
+                }}
+                onSelect={(presetName) => {
+                    trigger("MertsToolBox", "LoadPreset", presetName);
+                    setPresetPanelOpen(false);
+                }}
+                onDelete={(presetName) => {
+                    trigger("MertsToolBox", "DeletePreset", presetName);
+                }}
+            />
         </div>
     );
 };

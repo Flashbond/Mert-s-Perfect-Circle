@@ -18,7 +18,7 @@ namespace MertsToolBox.Management
             if (world == null)
                 return false;
 
-            var circle = world.GetExistingSystemManaged<CircleToolSystem>();
+            var circle = world.GetExistingSystemManaged<ShapeToolSystem>();
             var helix = world.GetExistingSystemManaged<HelixToolSystem>();
             var superEllipse = world.GetExistingSystemManaged<SoftBlockToolSystem>();
             var grid = world.GetExistingSystemManaged<GridToolSystem>();
@@ -45,21 +45,31 @@ namespace MertsToolBox.Management
         }
 
         /// <summary>
-        /// Checks if the provided category entity corresponds to a roads category.
+        /// Checks if the provided category entity corresponds to a network category.
         /// </summary>
-        public static bool IsRoadsCategory(Entity categoryEntity)
+        public static bool IsSupportedNetCategory(Entity categoryEntity)
         {
             if (!TryResolvePrefab(categoryEntity, out var prefab))
                 return false;
 
             string lower = (prefab?.name ?? string.Empty).ToLowerInvariant();
-            return lower.Contains("road");
+
+            return
+                lower.Contains("road") ||
+                lower.Contains("track") ||
+                lower.Contains("train") ||
+                lower.Contains("subway") ||
+                lower.Contains("tram") ||
+                lower.Contains("transport") ||
+                lower.Contains("bus") ||
+                lower.Contains("pier") ||
+                lower.Contains("pedestrian");
         }
 
         /// <summary>
-        /// Determines if the provided asset entity is a network prefab representing a road.
+        /// Determines if the provided asset entity is a supported network prefab.
         /// </summary>
-        public static bool IsRoadNetPrefab(Entity assetEntity, out NetPrefab netPrefab)
+        public static bool IsSupportedNetPrefab(Entity assetEntity, out NetPrefab netPrefab)
         {
             netPrefab = null;
 
@@ -137,6 +147,43 @@ namespace MertsToolBox.Management
             }
 
             return false;
+        }
+
+        public static bool TryResolveMenuFromCategory(Entity categoryEntity, out Entity menuEntity)
+        {
+            menuEntity = Entity.Null;
+
+            if (categoryEntity == Entity.Null)
+                return false;
+
+            var world = World.DefaultGameObjectInjectionWorld;
+            if (world == null)
+                return false;
+
+            var entityManager = world.EntityManager;
+            if (!entityManager.Exists(categoryEntity))
+                return false;
+
+            if (entityManager.TryGetComponent(
+                    categoryEntity,
+                    out Game.Prefabs.UIAssetCategoryData catData) &&
+                catData.m_Menu != Entity.Null)
+            {
+                menuEntity = catData.m_Menu;
+                return true;
+            }
+
+            return false;
+        }
+        public static bool IsCurrentStampAsset(Entity assetEntity)
+        {
+            if (assetEntity == Entity.Null)
+                return false;
+
+            if (!TryResolvePrefab(assetEntity, out var prefab))
+                return false;
+
+            return IsCurrentStamp(prefab);
         }
         #endregion
     }

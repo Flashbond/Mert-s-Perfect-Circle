@@ -11,7 +11,6 @@ namespace MertsToolBox.Core
     public class Mod : IMod
     {
         #region 1. CORE SYSTEMS & SETTINGS
-
         private Harmony m_Harmony;
         public static ToolBoxSettings settings;
         #endregion
@@ -26,6 +25,7 @@ namespace MertsToolBox.Core
             settings = new ToolBoxSettings(this);
 
             settings.RegisterInOptionsUI();
+            settings.RegisterKeyBindings();
 
             AssetDatabase.global.LoadSettings(nameof(Settings), settings, new ToolBoxSettings(this));
 
@@ -35,13 +35,13 @@ namespace MertsToolBox.Core
             m_Harmony = new Harmony("com.mert.toolbox");
             m_Harmony.PatchAll();
 
-            updateSystem.UpdateAt<CircleToolSystem>(SystemUpdatePhase.ToolUpdate);
+            updateSystem.UpdateAt<ShapeToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<HelixToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<SoftBlockToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<GridToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<MertToolBoxUISystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.UpdateAt<HelixToolErrorFlagSystem>(SystemUpdatePhase.ToolUpdate);
-
+;
             ModRuntime.Log("ToolBox loaded.");
         }
 

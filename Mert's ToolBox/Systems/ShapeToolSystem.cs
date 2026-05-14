@@ -1,0 +1,369 @@
+using Colossal.Mathematics;
+using Game.Prefabs;
+using MertsToolBox.Core;
+using MertsToolBox.Utilities.Preset;
+using System.Collections.Generic;
+using Unity.Mathematics;
+
+namespace MertsToolBox.Systems
+{
+    public partial class ShapeToolSystem : MertBaseToolSystem
+    {
+        #region Fields & Properties
+        private int m_CurrentSessionDimension = -1;
+        public readonly int[] m_DimensionSteps = new int[] { 8, 6, 4, 2 };
+        private int m_CurrentDimensionStepIndex = 0;
+
+        private int m_PendingDimensionChange = 0;
+        private int m_TargetDimensionStep = -1;
+
+        public readonly int[] m_AllowedSides = new int[] { 3, 4, 5, 6, 7, 8, 0 };
+        private int m_CurrentSidesIndex = 6;
+        private int m_PendingSidesChange = 0;
+
+        /// <summary>
+        /// Gets the name of the tool.
+        /// </summary>
+        public override string ToolId => "Shape";
+        public override string ToolName => "Perfect Shape";
+
+        #region Preset Management
+        public override MertToolPreset CreatePresetSnapshot()
+        {
+            NetPrefab prefab = TryGetCurrentSelectedRoadPrefab();
+            string prefabName = prefab?.name ?? "UnknownRoad";
+
+            int dimension = GetCurrentDimension();
+            int currentSides = m_AllowedSides[m_CurrentSidesIndex];
+            string shapeName = GetShapeName(currentSides);
+
+            return new MertToolPreset
+            {
+                ToolId = ToolId,
+                ToolName = ToolName,
+                PrefabName = prefabName,
+
+                DisplayName = SanitizeFileName(
+                    $"{ToolId}_{prefabName}_{shapeName}_Dimension{dimension}m"
+                ),
+
+                Values = new Dictionary<string, float>
+                {
+                    ["Dimension"] = dimension,
+                    ["Sides"] = currentSides
+                }
+            };
+        }
+        public string GetShapeName(int sides)
+        {
+            return sides switch
+            {
+                0 => "Circle",
+                3 => "Triangle",
+                4 => "Square",
+                5 => "Pentagon",
+                6 => "Hexagon",
+                7 => "Heptagon",
+                8 => "Octagon",
+                _ => throw new System.NotImplementedException(),
+            };
+        }
+        public override void ApplyPresetSnapshot(MertToolPreset preset)
+        {
+            if (preset?.Values == null)
+                return;
+
+            if (preset.Values.TryGetValue("Dimension", out float dimension))
+                SetCurrentDimension((int)dimension);
+
+            if (preset.Values.TryGetValue("Sides", out float sides))
+                SetSides((int)sides);
+
+            QueuePreviewRebuild();
+        }
+        #endregion
+
+        /// <summary>
+        /// Indicates whether this tool requires snap enforcement.
+        /// </summary>
+        protected override bool RequiresSnapEnforcement => true;
+        protected override bool HandlesOwnElevationInput => true;
+        #endregion
+
+        #region Input Queuing & State
+        protected override void RetrieveParametersFromSettings(int toolIndex, int paramIndex)
+        {
+            if (toolIndex != 1)
+                return;
+
+             m_CurrentSessionDimension = Mod.settings.DefaultShapeDimension;
+
+             QueuePreviewRebuild();
+        }
+
+      
+
+        /// <summary>
+        /// Queues a change in the diameter based on the given direction.
+        /// </summary>
+        public void QueueDimensionChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingDimensionChange += direction;
+        }
+
+        /// <summary>
+        /// Queues a change in the polygon sides based on the given direction.
+        /// </summary>
+        public void QueueSidesChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingSidesChange += direction;
+        }
+
+        public void QueueSetDimensionStep(int value) => m_TargetDimensionStep = value;
+        #endregion
+
+        #region Metrics & Data Retrieval
+        public int GetDimensionStepSize() => GetCurrentStepValue(m_CurrentDimensionStepIndex, m_DimensionSteps);
+
+        public int GetCurrentDimension()
+        {
+            if (m_CurrentSessionDimension < 0)
+                m_CurrentSessionDimension = Mod.settings != null ? Mod.settings.DefaultShapeDimension : 96;
+            return m_CurrentSessionDimension;
+        }
+
+        public ShapeMetrics GetCurrentShapeMetrics()
+        {
+            return ShapeMetrics.FromOuterDimension(GetCurrentDimension(), m_CurrentRoadWidth);
+        }
+
+        private int GetMinimumAllowedDimension()
+        {
+            return (int)math.ceil(m_CurrentRoadWidth * 3f);
+        }
+
+        public int GetCurrentSides() => m_AllowedSides[m_CurrentSidesIndex];
+        #endregion
+
+        #region Core Tool Processing
+        protected override void ProcessToolInput()
+        {
+            if (!ToolEnabled) return;
+
+            if (m_TargetDimensionStep != -1)
+            {
+                m_CurrentDimensionStepIndex = GetIndexFromValue(
+                    m_TargetDimensionStep,
+                    m_DimensionSteps,
+                    m_CurrentDimensionStepIndex
+                );
+                m_TargetDimensionStep = -1;
+            }
+
+            if (m_PendingDimensionChange != 0)
+            {
+                ChangeDimension(m_PendingDimensionChange);
+                m_PendingDimensionChange = 0;
+            }
+
+            if (m_PendingSidesChange != 0)
+            {
+                ChangeSides(m_PendingSidesChange);
+                m_PendingSidesChange = 0;
+            }
+
+            if (Mod.settings != null && Mod.settings.UseCtrlWheelForShapeDimensionAdjustment &&
+                UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.ctrlKey.isPressed)
+            {
+                int scrollDir = GetScrollDirection();
+                if (scrollDir != 0)
+                {
+                    RegisterUndoForWheel();
+                    SetCurrentDimension(GetCurrentDimension() + scrollDir);
+                }
+            }
+        }
+
+        public void ChangeDimension(int direction)
+        {
+            int stepSize = GetCurrentStepValue(m_CurrentDimensionStepIndex, m_DimensionSteps);
+            int nextValue = GetNextStepAlignedInt(GetCurrentDimension(), stepSize, direction);
+            SetCurrentDimension(nextValue);
+        }
+
+        /// <summary>
+        /// Wraps the side selection (5 <-> 6 <-> 7 <-> 8 <-> 0)
+        /// </summary>
+        private void ChangeSides(int direction)
+        {
+            m_CurrentSidesIndex += direction;
+
+            if (m_CurrentSidesIndex < 0)
+                m_CurrentSidesIndex = m_AllowedSides.Length - 1;
+            else if (m_CurrentSidesIndex >= m_AllowedSides.Length)
+                m_CurrentSidesIndex = 0;
+
+            QueuePreviewRebuild();
+        }
+
+        private void SetSides(int targetSides)
+        {
+            for (int i = 0; i < m_AllowedSides.Length; i++)
+            {
+                if (m_AllowedSides[i] == targetSides)
+                {
+                    if (m_CurrentSidesIndex == i)
+                        return;
+
+                    m_CurrentSidesIndex = i;
+                    QueuePreviewRebuild();
+                    return;
+                }
+            }
+        }
+
+        private void SetCurrentDimension(int diameter)
+        {
+            int dynamicMinBound = GetMinimumAllowedDimension();
+            int clamped = math.clamp(diameter, dynamicMinBound, 940);
+
+            if (m_CurrentSessionDimension == clamped)
+                return;
+
+            m_CurrentSessionDimension = clamped;
+            QueuePreviewRebuild();
+        }
+        #endregion
+
+        #region Geometry Generation
+        protected override bool TryGenerateGeometry(NetPrefab roadPrefab, out ObjectSubNetInfo[] subNets, out int widthCells, out int depthCells, out float costElevation)
+        {
+            int minAllowed = GetMinimumAllowedDimension();
+            if (m_CurrentSessionDimension < minAllowed)
+                m_CurrentSessionDimension = minAllowed;
+
+            subNets = null;
+            widthCells = 0;
+            depthCells = 0;
+            costElevation = 0f;
+
+            float inputD = m_CurrentSessionDimension - m_CurrentRoadWidth;
+            if (inputD <= 0f)
+                return false;
+
+            int sides = m_AllowedSides[m_CurrentSidesIndex];
+
+            float buildR;
+
+            if (sides == 0)
+            {
+                buildR = inputD * 0.5f;
+
+                int segments = CalculateAutoSegments(buildR);
+                subNets = BuildShapeSubNets(roadPrefab, buildR, segments, costElevation);
+            }
+            else
+            {
+                if (sides % 2 == 0)
+                {
+                    float apothem = inputD * 0.5f;
+                    buildR = apothem / math.cos(math.PI / sides);
+                }
+                else
+                {
+                    buildR = inputD * 0.5f;
+                }
+
+                subNets = BuildPolygonSubNets(roadPrefab, buildR, sides, costElevation);
+            }
+
+            widthCells = depthCells = (int)math.ceil(m_CurrentSessionDimension / 8f);
+
+            return true;
+        }
+
+        private int CalculateAutoSegments(float radius)
+        {
+            if (radius <= 24f) return 4;
+            if (radius <= 40f) return 8;
+            if (radius <= 80f) return 12;
+            return 16;
+        }
+        /// <summary>
+        /// Draws Circle geometry.
+        /// </summary>
+        private ObjectSubNetInfo[] BuildShapeSubNets(NetPrefab roadPrefab, float radius, int segments, float elevation)
+        {
+            ObjectSubNetInfo[] result = new ObjectSubNetInfo[segments];
+            float step = (math.PI * 2f) / segments;
+            float tension = 4f / 3f;
+            float tangentLength = radius * math.tan(step / 4f) * tension;
+
+            float3[] points = new float3[segments];
+            float3[] forwardTangents = new float3[segments];
+
+            for (int i = 0; i < segments; i++)
+            {
+                float a = i * step;
+                points[i] = new float3(math.cos(a) * radius, elevation, math.sin(a) * radius);
+                forwardTangents[i] = new float3(-math.sin(a), 0f, math.cos(a));
+            }
+
+            for (int i = 0; i < segments; i++)
+            {
+                int next = (i + 1) % segments;
+                result[i] = new ObjectSubNetInfo
+                {
+                    m_NetPrefab = roadPrefab,
+                    m_BezierCurve = new Bezier4x3(points[i], points[i] + forwardTangents[i] * tangentLength, points[next] - forwardTangents[next] * tangentLength, points[next]),
+                    m_NodeIndex = new int2(i, next),
+                    m_ParentMesh = new int2(-1, -1)
+                };
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Draws Polygon geometry with straight lines.
+        /// </summary>
+        private ObjectSubNetInfo[] BuildPolygonSubNets(NetPrefab roadPrefab, float radius, int sides, float elevation)
+        {
+            ObjectSubNetInfo[] result = new ObjectSubNetInfo[sides];
+            float step = (math.PI * 2f) / sides;
+
+            float3[] points = new float3[sides];
+
+            for (int i = 0; i < sides; i++)
+            {
+                float a = i * step - (math.PI / 2f);
+                points[i] = new float3(math.cos(a) * radius, elevation, math.sin(a) * radius);
+            }
+
+            for (int i = 0; i < sides; i++)
+            {
+                int next = (i + 1) % sides;
+
+                float3 p0 = points[i];
+                float3 p3 = points[next];
+
+                float3 dir = p3 - p0;
+                float3 p1 = p0 + (dir / 3f);
+                float3 p2 = p3 - (dir / 3f);
+
+                result[i] = new ObjectSubNetInfo
+                {
+                    m_NetPrefab = roadPrefab,
+                    m_BezierCurve = new Bezier4x3(p0, p1, p2, p3),
+                    m_NodeIndex = new int2(i, next),
+                    m_ParentMesh = new int2(-1, -1)
+                };
+            }
+
+            return result;
+        }
+        #endregion
+    }
+}

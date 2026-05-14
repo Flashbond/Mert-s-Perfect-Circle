@@ -6,7 +6,7 @@ import { parseActiveTool } from "./ActiveTool";
 const moduleName = "MertsToolBox";
 
 const activeTool$ = bindValue<string>(moduleName, "ActiveTool", "None|None");
-const showCircleCtrlWheelHint$ = bindValue<boolean>(moduleName, "ShowCircleCtrlWheelHint", false);
+const showShapeCtrlWheelHint$ = bindValue<boolean>(moduleName, "ShowShapeCtrlWheelHint", false);
 const showHelixCtrlWheelHint$ = bindValue<boolean>(moduleName, "ShowHelixCtrlWheelHint", false);
 const showSoftBlockCtrlWheelHint$ = bindValue<boolean>(moduleName, "ShowSoftBlockCtrlWheelHint", false);
 const actionStatusText$ = bindValue<string>(moduleName, "ActionStatusText", "");
@@ -45,7 +45,7 @@ export const ToolBoxActionHints = () => {
     const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
     const activeToolRaw = useValue(activeTool$) as string;
     const activeTool = parseActiveTool(activeToolRaw);
-    const showCircleCtrlWheelHint = useValue(showCircleCtrlWheelHint$) as boolean;
+    const showShapeCtrlWheelHint = useValue(showShapeCtrlWheelHint$) as boolean;
     const showHelixCtrlWheelHint = useValue(showHelixCtrlWheelHint$) as boolean;
     const showSoftBlockCtrlWheelHint = useValue(showSoftBlockCtrlWheelHint$) as boolean;
     const actionStatusText = useValue(actionStatusText$) as string;
@@ -77,9 +77,9 @@ export const ToolBoxActionHints = () => {
         let showCtrlWheelHint = false;
 
         switch (activeTool.id) {
-            case "Circle":
-                actionText = "Precise Diameter";
-                showCtrlWheelHint = showCircleCtrlWheelHint;
+            case "Shape":
+                actionText = "Precise Dimension";
+                showCtrlWheelHint = showShapeCtrlWheelHint;
                 break;
 
             case "Helix":
@@ -105,7 +105,7 @@ export const ToolBoxActionHints = () => {
                     {showCtrlWheelHint && (
                         <span className="hint_l_F">
                             <span className="modifier_iDc">
-                                <span className="button-text_fw1 button_ehL" style={{ padding: "0 7rem" }}>Ctrl</span>
+                                <span className="button-text_fw1 button_ehL" style={{ padding: "0 6rem" }}>Ctrl</span>
                             </span>
                             <span className="binding_dc_">
                                 <img className="hint-icon_VtT" src="Media/Mouse/Scrollwheel.svg" alt="Wheel" />
@@ -128,7 +128,7 @@ export const ToolBoxActionHints = () => {
         );
     }, [
         activeTool,
-        showCircleCtrlWheelHint,
+        showShapeCtrlWheelHint,
         showHelixCtrlWheelHint,
         showSoftBlockCtrlWheelHint,
         actionStatusText

@@ -1,6 +1,7 @@
 using Colossal.Mathematics;
 using Game.Prefabs;
 using MertsToolBox.Core;
+using MertsToolBox.Utilities.Preset;
 using System.Collections.Generic;
 using Unity.Mathematics;
 
@@ -10,20 +11,23 @@ namespace MertsToolBox.Systems
     {
         #region Fields & Properties
         private int m_CurrentSessionWidth = -1;
-        public readonly int[] m_WidthSteps = new int[] { 8, 4, 2, 1 };
+        public readonly int[] m_WidthSteps = new int[] { 8, 6, 4, 2 };
         private int m_CurrentWidthStepIndex = 0;
 
         private int m_CurrentSessionLength = -1;
-        public readonly int[] m_LengthSteps = new int[] { 8, 4, 2, 1 };
+        public readonly int[] m_LengthSteps = new int[] { 8, 6, 4, 2 };
         private int m_CurrentLengthStepIndex = 0;
 
-        private float m_BorderRadius = 5f;
+        private float m_CurrentSessionBorderRadius = -1f;
 
+        private bool m_UseStraightCorners = false;
+        
         private int m_PendingWidthChange = 0;
         private int m_TargetWidthStep = -1;
         private int m_PendingLengthChange = 0;
         private int m_TargetLengthStep = -1;
         private float m_PendingBorderRadiushange = 0f;
+        private bool m_PendingToggleStraightCorners = false;
 
         private enum BorderRadiusSnapState
         {
@@ -36,6 +40,7 @@ namespace MertsToolBox.Systems
 
         private const float BorderRadiusSnapTarget = 8f;
         private const float BorderRadiusSnapThreshold = 0.4f;
+        private int m_PillWheelLatchTicks = 0;
 
         /// <summary>
         /// Standard cubic Bézier circle approximation.
@@ -54,58 +59,165 @@ namespace MertsToolBox.Systems
         protected override bool HandlesOwnElevationInput => true;
         #endregion
 
+        #region Preset System
+        public override MertToolPreset CreatePresetSnapshot()
+        {
+            NetPrefab prefab = TryGetCurrentSelectedRoadPrefab();
+            string prefabName = prefab?.name ?? "UnknownRoad";
+
+            int width = GetCurrentWidth();
+            int length = GetCurrentLength();
+            float radius = GetCurrentBorderRadius();
+
+
+            return new MertToolPreset
+            {
+                ToolId = ToolId,
+                ToolName = ToolName,
+                PrefabName = prefabName,
+
+                DisplayName = SanitizeFileName(
+                    $"{ToolId}_{prefabName}_Dimensions{width}x{length}m_Radius{radius:0.0}"+
+                    $"{(m_UseStraightCorners ? "_StraightCorners" : "")}"
+                ),
+
+                Values = new Dictionary<string, float>
+                {
+                    ["Width"] = width,
+                    ["Length"] = length,
+                    ["BorderRadius"] = radius,
+                    ["StraightCorners"] = m_UseStraightCorners ? 1f : 0f
+                }
+            };
+        }
+
+        public override void ApplyPresetSnapshot(MertToolPreset preset)
+        {
+            if (preset == null || preset.Values == null)
+                return;
+
+            if (preset.Values.TryGetValue("Width", out float width))
+                SetCurrentWidth((int)width);
+
+            if (preset.Values.TryGetValue("Length", out float length))
+                SetCurrentLength((int)length);
+
+            if (preset.Values.TryGetValue("BorderRadius", out float radius))
+                SetCurrentBorderRadius(radius, useSnap: false);
+
+            if (preset.Values.TryGetValue("StraightCorners", out float corners))
+                m_UseStraightCorners = corners >= 0.5f;
+
+            QueuePreviewRebuild();
+        }
+        #endregion
+
         #region Input Queuing & State
+        protected override void RetrieveParametersFromSettings(int toolIndex, int paramIndex)
+        {
+            if (toolIndex != 3)
+                return;
+
+            switch (paramIndex)
+            {
+                case 1:
+                    m_CurrentSessionWidth = Mod.settings.DefaultSoftBlockWidth;
+                    break;
+
+                case 2:
+                    m_CurrentSessionLength = Mod.settings.DefaultSoftBlockLength;
+                    break;
+
+                case 3:
+                    m_CurrentSessionBorderRadius = Mod.settings.DefaultSoftBlockBorderRadius;
+                    break;
+            }
+
+            QueuePreviewRebuild();
+        }
         public void BeginBorderRadiusDrag()
         {
-            // If user starts dragging while already near 8,
-            // allow fine adjustment away from 8.
+            BeginSliderUndoTransaction();
+
             m_BorderRadiusSnapState =
-                math.abs(m_BorderRadius - BorderRadiusSnapTarget) <= BorderRadiusSnapThreshold
+                math.abs(m_CurrentSessionBorderRadius - BorderRadiusSnapTarget) <= BorderRadiusSnapThreshold
                     ? BorderRadiusSnapState.Disarmed
                     : BorderRadiusSnapState.Armed;
         }
 
         public void EndBorderRadiusDrag()
         {
+            EndSliderUndoTransaction();
+
             m_BorderRadiusSnapState = BorderRadiusSnapState.Armed;
         }
-   
-        protected override void OnSettingsChanged()
-        {
-            if (Mod.settings != null)
-            {
-                m_CurrentSessionWidth = Mod.settings.DefaultSoftBlockWidth;
-                m_CurrentSessionLength = Mod.settings.DefaultSoftBlockLength;
-            }
-
-            base.OnSettingsChanged();
-        }
+    
         /// <summary>
         /// Queues a change in the width based on the given direction.
         /// </summary>
-        public void QueueWidthChange(int direction) => m_PendingWidthChange += direction;
+        public void QueueWidthChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingWidthChange += direction;
+        }
+
 
         /// <summary>
         /// Queues a step cycle for the width adjustment.
         /// </summary>
-        public void QueueSetWidthStep(int value) => m_TargetWidthStep = value;
+        public void QueueSetWidthStep(int value)
+        {
+            m_TargetWidthStep = value;
+        }
 
         /// <summary>
         /// Queues a change in the length based on the given direction.
         /// </summary>
-        public void QueueLengthChange(int direction) => m_PendingLengthChange += direction;
+        public void QueueLengthChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingLengthChange += direction;
+        }
 
         /// <summary>
         /// Queues a step cycle for the length adjustment.
         /// </summary>
-        public void QueueSetLengthStep(int value) => m_TargetLengthStep = value;
+        public void QueueSetLengthStep(int value)
+        {
+            m_TargetLengthStep = value;
+        }
 
         /// <summary>
-        /// Sets the current N value directly from the UI slider.
+        /// Sets the current R value directly from the UI slider.
         /// </summary>
         public void SetBorderRadiusFromUi(float value)
         {
             SetCurrentBorderRadius(value, useSnap: true);
+        }
+        public void QueueToggleStraightCorners()
+        {
+            if (!IsStraightCornersSupported())
+                return;
+
+            RegisterUndoForButton();
+            m_PendingToggleStraightCorners = true;
+        }
+
+        public bool GetUseStraightCorners() => m_UseStraightCorners;
+
+        public bool IsStraightCornersSupported()
+        {
+            NetPrefab currentPrefab = TryGetCurrentSelectedRoadPrefab();
+
+            if (currentPrefab is TrackPrefab)
+            {
+                string lower = currentPrefab.name?.ToLowerInvariant() ?? string.Empty;
+
+                if (lower.Contains("train") || lower.Contains("subway"))
+                    return false;
+            }
+
+            return true;
         }
         #endregion
 
@@ -129,14 +241,11 @@ namespace MertsToolBox.Systems
         /// Retrieves the current session length, applying default settings if uninitialized.
         /// </summary>
         public int GetCurrentLength() { if (m_CurrentSessionLength < 0) m_CurrentSessionLength = Mod.settings != null ? Mod.settings.DefaultSoftBlockLength : 192; return m_CurrentSessionLength; }
-
+       
         /// <summary>
-        /// Calculates and retrieves the current N slider value mapped to a 1-15 scale.
+        /// Retrieves the current session radius, applying default settings if uninitialized.
         /// </summary>
-        public float GetCurrentBorderRadius()
-        {
-            return m_BorderRadius;
-        }
+        public float GetCurrentBorderRadius() { if (m_CurrentSessionBorderRadius < 0) m_CurrentSessionBorderRadius = Mod.settings != null ? Mod.settings.DefaultSoftBlockBorderRadius : 5.0f; return m_CurrentSessionBorderRadius; }
         #endregion
 
         #region Core Tool Processing
@@ -170,6 +279,17 @@ namespace MertsToolBox.Systems
 
             if (m_PendingLengthChange != 0) { ChangeLength(m_PendingLengthChange); m_PendingLengthChange = 0; }
 
+            if (m_PendingToggleStraightCorners)
+            {
+                if (IsStraightCornersSupported())
+                {
+                    m_UseStraightCorners = !m_UseStraightCorners;
+                    QueuePreviewRebuild();
+                }
+
+                m_PendingToggleStraightCorners = false;
+            }
+
             if (math.abs(m_PendingBorderRadiushange) > 0.001f)
             {
                 SetCurrentBorderRadius(GetCurrentBorderRadius() + m_PendingBorderRadiushange);
@@ -179,39 +299,60 @@ namespace MertsToolBox.Systems
                 UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.ctrlKey.isPressed)
             {
                 int scrollDir = GetScrollDirection();
-                if (scrollDir != 0) SetCurrentBorderRadiusFromWheel(scrollDir * 0.1f);
+                if (scrollDir != 0)
+                {
+                    RegisterUndoForWheel();
+                    SetCurrentBorderRadiusFromWheel(scrollDir * 0.1f);
+                }
             }
         }
         private void SetCurrentBorderRadiusFromWheel(float delta)
         {
-            float current = m_BorderRadius;
+            float current = m_CurrentSessionBorderRadius;
             float raw = math.clamp(current + delta, 1f, 10f);
 
             float currentDist = math.abs(current - BorderRadiusSnapTarget);
             float rawDist = math.abs(raw - BorderRadiusSnapTarget);
 
-            // Wheel behavior:
-            // If user enters the pill boundary from outside, snap once to 8.
-            // Then disarm so the next wheel tick allows fine adjustment.
+            // ------------------------------------------------------------
+            // HARD LATCH:
+            // Once snapped to pill (8), consume a few wheel ticks before
+            // allowing escape. This makes the pill boundary feel intentional.
+            // ------------------------------------------------------------
+            if (m_PillWheelLatchTicks > 0)
+            {
+                bool tryingToLeavePill =
+                    (delta > 0f && current >= BorderRadiusSnapTarget) ||
+                    (delta < 0f && current <= BorderRadiusSnapTarget);
+
+                if (tryingToLeavePill)
+                {
+                    m_PillWheelLatchTicks--;
+                    return;
+                }
+
+                m_PillWheelLatchTicks = 0;
+            }
+
+            // ------------------------------------------------------------
+            // Enter snap zone from outside -> snap hard to 8.
+            // ------------------------------------------------------------
             bool enteredSnapZoneFromOutside =
                 currentDist > BorderRadiusSnapThreshold &&
                 rawDist <= BorderRadiusSnapThreshold;
 
             if (enteredSnapZoneFromOutside)
             {
-                m_BorderRadiusSnapState = BorderRadiusSnapState.Disarmed;
+                // Stay attached for a few wheel steps.
+                m_PillWheelLatchTicks = 4;
+
                 SetCurrentBorderRadius(BorderRadiusSnapTarget, useSnap: false);
                 return;
             }
 
-            // Once user moves clearly away, re-arm snap.
-            if (rawDist > BorderRadiusSnapThreshold)
-            {
-                m_BorderRadiusSnapState = BorderRadiusSnapState.Armed;
-            }
-
             SetCurrentBorderRadius(raw, useSnap: false);
         }
+
         /// <summary>
         /// Changes the width by aligning it to the next step value.
         /// </summary>
@@ -237,8 +378,31 @@ namespace MertsToolBox.Systems
         /// </summary>
         private int GetMinimumAllowedSize()
         {
-            // Parametre ve hesaplama silindi, doğrudan miras alınan değişken kullanılıyor
-            return (int)math.ceil(m_CurrentRoadWidth * 3f);
+            return (int)math.ceil(m_CurrentRoadWidth * GetMinimumSafeRadiusMultiplier());
+        }
+        private float GetMinimumSafeRadiusMultiplier()
+        {
+            NetPrefab currentPrefab = TryGetCurrentSelectedRoadPrefab();
+
+            if (currentPrefab is TrackPrefab)
+            {
+                string lower = currentPrefab.name?.ToLowerInvariant() ?? string.Empty;
+
+                // Tram tracks can tolerate tighter curves.
+                if (lower.Contains("tram"))
+                    return 4f;
+
+                // Train/subway tracks need wider curves.
+                if (lower.Contains("train") ||
+                    lower.Contains("subway"))
+                    return 8f;
+
+                // Generic track fallback.
+                return 6f;
+            }
+
+            // Default road behavior.
+            return 3f;
         }
 
         /// <summary>
@@ -308,10 +472,10 @@ namespace MertsToolBox.Systems
                 }
             }
 
-            if (math.abs(m_BorderRadius - nextSlider) < 0.01f)
+            if (math.abs(m_CurrentSessionBorderRadius - nextSlider) < 0.01f)
                 return;
 
-            m_BorderRadius = nextSlider;
+            m_CurrentSessionBorderRadius = nextSlider;
             QueuePreviewRebuild();
         }
         #endregion
@@ -331,7 +495,7 @@ namespace MertsToolBox.Systems
             if (buildRx < m_CurrentRoadWidth || buildRy < m_CurrentRoadWidth) return false;
             costElevation = GetCurrentNetToolElevation();
 
-            subNets = BuildAdaptiveShapeSubNets(roadPrefab, buildRx, buildRy, costElevation );
+            subNets = BuildAdaptiveShapeSubNets(roadPrefab, buildRx, buildRy, costElevation);
 
             widthCells = (int)math.ceil(m_CurrentSessionWidth / 8f);
             depthCells = (int)math.ceil(m_CurrentSessionLength / 8f);
@@ -348,66 +512,41 @@ namespace MertsToolBox.Systems
 
             float shortest = math.min(rx, ry);
 
-            // Empirical engine-safe minimum:
-            float safeMinRadius = m_CurrentRoadWidth * Kappa;
+            // Minimum legal outer dimension already includes road/track-specific safety.
+            // Convert that minimum outer size into a real corner radius.
+            float minAllowedSize = GetMinimumAllowedSize();
+            float minSafeRadius = (minAllowedSize - m_CurrentRoadWidth) * 0.5f;
 
-            // Convert real radius into normalized radius relative to the shortest build side.
-            float safeMin01 = math.saturate(safeMinRadius / math.max(0.1f, shortest));
+            // The pill limit is the largest circular corner radius that still fits the box.
+            float pillRadius = shortest;
 
-            // UI artık 1..10
-            float ui = math.clamp(m_BorderRadius, 1f, 10f);
+            minSafeRadius = math.clamp(minSafeRadius, 0.01f, pillRadius);
+
+            float ui = math.clamp(m_CurrentSessionBorderRadius, 1f, 10f);
 
             float cornerX;
             float cornerY;
 
-            float SmoothStep01(float x)
-            {
-                x = math.saturate(x);
-                return x * x * (3f - 2f * x);
-            }
-
             if (ui <= 8f)
             {
-                // 1..8 = safe rounded rectangle -> capsule/pill
-                //
-                // Important:
-                // Linear radius growth makes the short straight edges too short too early.
-                // The game then stops treating them as proper zoning-generating straight roads.
-                // Squared easing keeps the straight sections longer until the shape is close to pill.
-                float rawT = math.saturate((ui - 1f) / 7f);
-                float t = rawT * rawT;
+                // 1..8 = real quarter-circle radius:
+                // minimum safe radius -> pill radius.
+                float t = math.saturate((ui - 1f) / 7f);
 
-                float safeRadius = shortest * safeMin01;
-                float r = math.lerp(safeRadius, shortest, t);
+                float r = math.lerp(minSafeRadius, pillRadius, t);
 
                 cornerX = r;
                 cornerY = r;
-
-                // Preserve enough straight edge for zoning until we approach full pill.
-                // From UI 7 -> 8 this protection fades out, so 8 can still become a true pill.
-                float pillFade = SmoothStep01((ui - 7f) / 1f);
-                float minStraightLength = m_CurrentRoadWidth * 1.25f * (1f - pillFade);
-
-                if (minStraightLength > 0.01f)
-                {
-                    float maxCornerXForStraight = rx - minStraightLength * 0.5f;
-                    float maxCornerYForStraight = ry - minStraightLength * 0.5f;
-
-                    // Do not push below the empirical safe radius.
-                    if (maxCornerXForStraight > safeRadius)
-                        cornerX = math.min(cornerX, maxCornerXForStraight);
-
-                    if (maxCornerYForStraight > safeRadius)
-                        cornerY = math.min(cornerY, maxCornerYForStraight);
-                }
             }
             else
             {
-                // 8..10 = capsule/pill -> ellipse
+                // 8..10 = pill -> fountain pen / ellipse.
+                // Here the corner stops being a pure circular quarter-piece
+                // and morphs into an elliptical cap.
                 float blend = math.saturate((ui - 8f) / 2f);
 
-                cornerX = math.lerp(shortest, rx, blend);
-                cornerY = math.lerp(shortest, ry, blend);
+                cornerX = math.lerp(pillRadius, rx, blend);
+                cornerY = math.lerp(pillRadius, ry, blend);
             }
 
             cornerX = math.clamp(cornerX, 0.01f, rx);
@@ -450,9 +589,18 @@ namespace MertsToolBox.Systems
                 new float3(innerRight, elevation, top),
                 new float3(innerLeft, elevation, top)
             );
+            void AddCornerOrChord(float3 a, float3 b, float3 c, float3 d)
+            {
+                if (m_UseStraightCorners)
+                {
+                    AddLine(a, d);
+                    return;
+                }
 
+                AddCorner(a, b, c, d);
+            }
             // TOP LEFT
-            AddCorner(
+            AddCornerOrChord(
                 new float3(innerLeft, elevation, top),
                 new float3(innerLeft - cornerX * Kappa, elevation, top),
                 new float3(left, elevation, innerTop + cornerY * Kappa),
@@ -466,7 +614,7 @@ namespace MertsToolBox.Systems
             );
 
             // BOTTOM LEFT
-            AddCorner(
+            AddCornerOrChord(
                 new float3(left, elevation, innerBottom),
                 new float3(left, elevation, innerBottom - cornerY * Kappa),
                 new float3(innerLeft - cornerX * Kappa, elevation, bottom),
@@ -480,12 +628,12 @@ namespace MertsToolBox.Systems
             );
 
             // BOTTOM RIGHT
-            AddCorner(
-                new float3(innerRight, elevation, bottom),
-                new float3(innerRight + cornerX * Kappa, elevation, bottom),
-                new float3(right, elevation, innerBottom - cornerY * Kappa),
-                new float3(right, elevation, innerBottom)
-            );
+            AddCornerOrChord(
+                 new float3(innerRight, elevation, bottom),
+                 new float3(innerRight + cornerX * Kappa, elevation, bottom),
+                 new float3(right, elevation, innerBottom - cornerY * Kappa),
+                 new float3(right, elevation, innerBottom)
+             );
 
             // RIGHT
             AddLine(
@@ -494,7 +642,7 @@ namespace MertsToolBox.Systems
             );
 
             // TOP RIGHT
-            AddCorner(
+            AddCornerOrChord(
                 new float3(right, elevation, innerTop),
                 new float3(right, elevation, innerTop + cornerY * Kappa),
                 new float3(innerRight + cornerX * Kappa, elevation, top),
@@ -516,6 +664,7 @@ namespace MertsToolBox.Systems
 
             return result;
         }
+
         private void RotateCurveStart(List<Bezier4x3> curves, int startIndex)
         {
             if (curves == null || curves.Count == 0)

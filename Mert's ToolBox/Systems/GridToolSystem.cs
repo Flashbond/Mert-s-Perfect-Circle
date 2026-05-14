@@ -2,6 +2,7 @@ using Colossal.Entities;
 using Colossal.Mathematics;
 using Game.Prefabs;
 using MertsToolBox.Core;
+using MertsToolBox.Utilities.Preset;
 using System.Collections.Generic;
 using Unity.Mathematics;
 
@@ -39,70 +40,174 @@ namespace MertsToolBox
         protected override bool HandlesOwnElevationInput => true;
         #endregion
 
-        #region Input Queuing % State
-        protected override void OnSettingsChanged()
+        #region Preset System
+        public override MertToolPreset CreatePresetSnapshot()
         {
-            if (Mod.settings != null)
+            NetPrefab prefab = TryGetCurrentSelectedRoadPrefab();
+            string prefabName = prefab?.name ?? "UnknownRoad";
+
+            int blockWidth = GetCurrentBlockWidthU();
+            int blockLength = GetCurrentBlockLengthU();
+            int columns = GetCurrentColumns();
+            int rows = GetCurrentRows();
+
+            return new MertToolPreset
             {
-                m_CurrentSessionBlockWidthU = Mod.settings.BlockWidthU;
-                m_CurrentSessionBlockLengthU = Mod.settings.BlockLengthU;
-                m_CurrentSessionColumns = Mod.settings.Columns;
-                m_CurrentSessionRows = Mod.settings.Rows;
+                ToolId = ToolId,
+                ToolName = ToolName,
+                PrefabName = prefabName,
+                DisplayName = SanitizeFileName(
+                    $"{ToolId}_{prefabName}_Block{blockWidth}x{blockLength}U_Grid{columns}x{rows}" +
+                    $"{(m_IsAlternating ? "_Alternating" : "")}" +
+                    $"{(m_IsOrientationLeftBottom ? "_Bottom-Left" : "_Bottom-Right")}"
+                ),
+                Values = new Dictionary<string, float>
+                {
+                    ["BlockWidthU"] = blockWidth,
+                    ["BlockLengthU"] = blockLength,
+                    ["Columns"] = columns,
+                    ["Rows"] = rows,
+                    ["Alternating"] = m_IsAlternating ? 1f : 0f,
+                    ["OrientationLeftBottom"] = m_IsOrientationLeftBottom ? 1f : 0f
+                }
+            };
+        }
+
+        public override void ApplyPresetSnapshot(MertToolPreset preset)
+        {
+            if (preset?.Values == null)
+                return;
+
+            if (preset.Values.TryGetValue("BlockWidthU", out float blockWidth))
+                m_CurrentSessionBlockWidthU = math.clamp((int)blockWidth, 1, 24);
+
+            if (preset.Values.TryGetValue("BlockLengthU", out float blockLength))
+                m_CurrentSessionBlockLengthU = math.clamp((int)blockLength, 1, 24);
+
+            if (preset.Values.TryGetValue("Columns", out float columns))
+                m_CurrentSessionColumns = math.clamp((int)columns, 1, 24);
+
+            if (preset.Values.TryGetValue("Rows", out float rows))
+                m_CurrentSessionRows = math.clamp((int)rows, 1, 24);
+
+            if (preset.Values.TryGetValue("Alternating", out float alternating))
+                m_IsAlternating = alternating >= 0.5f;
+
+            if (preset.Values.TryGetValue("OrientationLeftBottom", out float orientation))
+                m_IsOrientationLeftBottom = orientation >= 0.5f;
+
+            QueuePreviewRebuild();
+        }
+        #endregion
+
+        #region Input Queuing % State
+        protected override void RetrieveParametersFromSettings(int toolIndex, int paramIndex)
+        {
+            if (toolIndex != 4)
+                return;
+
+            switch (paramIndex)
+            {
+                case 1:
+                    m_CurrentSessionBlockWidthU = Mod.settings.DefaultBlockWidthU;
+                    break;
+
+                case 2:
+                    m_CurrentSessionBlockLengthU = Mod.settings.DefaultBlockLengthU;
+                    break;
+
+                case 3:
+                    m_CurrentSessionColumns = Mod.settings.DefaultColumns;
+                    break;
+
+                case 4:
+                    m_CurrentSessionRows = Mod.settings.DefaultRows;
+                    break;
             }
 
-            base.OnSettingsChanged();
+            QueuePreviewRebuild();
         }
         /// <summary>
         /// Queues a change in the block width based on the given direction.
         /// </summary>
-        public void QueueBlockWidthChange(int direction) => m_PendingBlockWidthChange += direction;
+        public void QueueBlockWidthChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingBlockWidthChange += direction;
+        }
 
         /// <summary>
         /// Queues a change in the block length based on the given direction.
         /// </summary>
-        public void QueueBlockLengthChange(int direction) => m_PendingBlockLengthChange += direction;
+        public void QueueBlockLengthChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingBlockLengthChange += direction;
+        }
 
         /// <summary>
         /// Queues a change in the number of columns based on the given direction.
         /// </summary>
-        public void QueueColsChange(int direction) => m_PendingColsChange += direction;
+        public void QueueColsChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingColsChange += direction;
+        }
 
         /// <summary>
         /// Queues a change in the number of rows based on the given direction.
         /// </summary>
-        public void QueueRowsChange(int direction) => m_PendingRowsChange += direction;
+        public void QueueRowsChange(int direction)
+        {
+            RegisterUndoForButton();
+            m_PendingRowsChange += direction;
+        }
 
         /// <summary>
         /// Queues a toggle action for the alternating one-way road pattern.
         /// </summary>
-        public void QueueToggleAlternating() => m_PendingToggleAlternating = true;
+        public void QueueToggleAlternating()
+        {
+            if (!IsCurrentPrefabValidForOneWayPattern())
+                return;
+
+            RegisterUndoForButton();
+            m_PendingToggleAlternating = true;
+        }
 
         /// <summary>
         /// Queues a toggle action for the one-way road orientation.
         /// </summary>
-        public void QueueToggleOrientation() => m_PendingToggleOrientation = true;
+        public void QueueToggleOrientation()
+        {
+            if (!IsCurrentPrefabValidForOneWayPattern())
+                return;
+
+            RegisterUndoForButton();
+            m_PendingToggleOrientation = true;
+        }
         #endregion
 
         #region Metrics & State Retrieval
         /// <summary>
         /// Retrieves the current block width in units, applying default settings if uninitialized.
         /// </summary>
-        public int GetCurrentBlockWidthU() { if (m_CurrentSessionBlockWidthU < 0) m_CurrentSessionBlockWidthU = Mod.settings != null ? Mod.settings.BlockWidthU : 6; return m_CurrentSessionBlockWidthU; }
+        public int GetCurrentBlockWidthU() { if (m_CurrentSessionBlockWidthU < 0) m_CurrentSessionBlockWidthU = Mod.settings != null ? Mod.settings.DefaultBlockWidthU : 6; return m_CurrentSessionBlockWidthU; }
 
         /// <summary>
         /// Retrieves the current block length in units, applying default settings if uninitialized.
         /// </summary>
-        public int GetCurrentBlockLengthU() { if (m_CurrentSessionBlockLengthU < 0) m_CurrentSessionBlockLengthU = Mod.settings != null ? Mod.settings.BlockLengthU : 6; return m_CurrentSessionBlockLengthU; }
+        public int GetCurrentBlockLengthU() { if (m_CurrentSessionBlockLengthU < 0) m_CurrentSessionBlockLengthU = Mod.settings != null ? Mod.settings.DefaultBlockLengthU : 6; return m_CurrentSessionBlockLengthU; }
 
         /// <summary>
         /// Retrieves the current number of columns, applying default settings if uninitialized.
         /// </summary>
-        public int GetCurrentColumns() { if (m_CurrentSessionColumns < 0) m_CurrentSessionColumns = Mod.settings != null ? Mod.settings.Columns : 2; return m_CurrentSessionColumns; }
+        public int GetCurrentColumns() { if (m_CurrentSessionColumns < 0) m_CurrentSessionColumns = Mod.settings != null ? Mod.settings.DefaultColumns : 2; return m_CurrentSessionColumns; }
 
         /// <summary>
         /// Retrieves the current number of rows, applying default settings if uninitialized.
         /// </summary>
-        public int GetCurrentRows() { if (m_CurrentSessionRows < 0) m_CurrentSessionRows = Mod.settings != null ? Mod.settings.Rows : 2; return m_CurrentSessionRows; }
+        public int GetCurrentRows() { if (m_CurrentSessionRows < 0) m_CurrentSessionRows = Mod.settings != null ? Mod.settings.DefaultRows : 2; return m_CurrentSessionRows; }
 
         /// <summary>
         /// Gets a value indicating whether the alternating road pattern is active.
@@ -244,7 +349,7 @@ namespace MertsToolBox
         // --- PRIVATE SETTER METHODS  ---
         private void SetCurrentBlockWidthU(int value)
         {
-            int clamped = math.clamp(value, 2, 24);
+            int clamped = math.clamp(value, 2, 48);
             if (m_CurrentSessionBlockWidthU == clamped) return;
 
             m_CurrentSessionBlockWidthU = clamped;
@@ -253,7 +358,7 @@ namespace MertsToolBox
 
         private void SetCurrentBlockLengthU(int value)
         {
-            int clamped = math.clamp(value, 2, 24);
+            int clamped = math.clamp(value, 2, 48);
             if (m_CurrentSessionBlockLengthU == clamped) return;
 
             m_CurrentSessionBlockLengthU = clamped;
@@ -262,7 +367,7 @@ namespace MertsToolBox
 
         private void SetCurrentColumns(int value)
         {
-            int clamped = math.clamp(value, 1, 12);
+            int clamped = math.clamp(value, 1, 24);
             if (m_CurrentSessionColumns == clamped) return;
 
             m_CurrentSessionColumns = clamped;
@@ -271,7 +376,7 @@ namespace MertsToolBox
 
         private void SetCurrentRows(int value)
         {
-            int clamped = math.clamp(value, 1, 12);
+            int clamped = math.clamp(value, 1, 24);
             if (m_CurrentSessionRows == clamped) return;
 
             m_CurrentSessionRows = clamped;

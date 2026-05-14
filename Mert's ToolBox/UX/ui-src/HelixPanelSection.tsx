@@ -1,9 +1,10 @@
 ﻿import React, { useEffect, useState } from "react";
-import { bindValue, trigger, useValue } from "cs2/api";
+import { trigger, call, bindValue, useValue } from "cs2/api";
 import ccwIcon from "./Icons/CounterCW.svg";
 import { formatMeters, formatSmart } from "./utils/Formatters";
 import { VanillaResolver } from "./utils/VanilliaResolver";
 import { parseActiveTool, ActiveTool } from "./utils/ActiveTool";
+import { MertListBox } from './utils/MertListBox';
 
 // --- GLOBAL BINDINGS (C# TO UI) ---
 const activeToolMode$ = bindValue<string>("MertsToolBox", "ActiveTool", "None|None");
@@ -13,7 +14,7 @@ const helixDiameter$ = bindValue<number>("MertsToolBox", "HelixDiameter");
 const helixDiameterStepValue$ = bindValue<number>("MertsToolBox", "HelixDiameterStepValue");
 const helixDiameterStepArray$ = bindValue<number[]>("MertsToolBox", "HelixDiameterStepArray");
 
-const helixTurns$ = bindValue<number>("MertsToolBox", "HelixTurns");
+const helixTurn$ = bindValue<number>("MertsToolBox", "HelixTurns");
 const helixTurnStepValue$ = bindValue<number>("MertsToolBox", "HelixTurnStepValue");
 const helixTurnStepArray$ = bindValue<number[]>("MertsToolBox", "HelixTurnStepArray");
 
@@ -22,6 +23,8 @@ const helixClearanceStepValue$ = bindValue<number>("MertsToolBox", "HelixClearan
 const helixClearanceStepArray$ = bindValue<number[]>("MertsToolBox", "HelixClearanceStepArray");
 
 const helixIsClockwise$ = bindValue<boolean>("MertsToolBox", "HelixIsClockwise");
+
+const presetList$ = bindValue<string>("MertsToolBox", "PresetList", "");
 
 // --- COMPONENT DEFINITION ---
 export const HelixPanelSection = () => {
@@ -34,6 +37,8 @@ export const HelixPanelSection = () => {
     const rawShow: boolean = isToolBoxAllowed && activeTool.id === "Helix";
     const [delayedShow, setDelayedShow] = useState(false);
 
+    const [presetPanelOpen, setPresetPanelOpen] = useState(false);
+
     useEffect(() => {
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -42,6 +47,7 @@ export const HelixPanelSection = () => {
         } else {
             timeoutId = setTimeout(() => {
                 setDelayedShow(false);
+                setPresetPanelOpen(false);
             }, 150);
         }
 
@@ -55,7 +61,7 @@ export const HelixPanelSection = () => {
     const diameterStepValue = useValue(helixDiameterStepValue$) as number;
     const diameterStepValues = useValue(helixDiameterStepArray$) as number[];
 
-    const turns = useValue(helixTurns$) as number;
+    const turn = useValue(helixTurn$) as number;
     const turnStepValue = useValue(helixTurnStepValue$) as number;
     const turnStepValues = useValue(helixTurnStepArray$) as number[];
 
@@ -64,6 +70,13 @@ export const HelixPanelSection = () => {
     const clearanceStepValues = useValue(helixClearanceStepArray$) as number[];
 
     const isClockwise = useValue(helixIsClockwise$) as boolean;
+
+    const presetListRaw = useValue(presetList$) as string;
+
+    const presetList = (presetListRaw || "")
+        .split(";")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
 
     // --- RENDER ---
     if (!delayedShow) return null;
@@ -116,7 +129,7 @@ export const HelixPanelSection = () => {
                     onSelect={() => trigger("MertsToolBox", "HelixTurnsDown")}
                 />
 
-                <div className={VanillaResolver.instance.mouseToolOptionsTheme["number-field"]}>{formatSmart(turns)}</div>
+                <div className={VanillaResolver.instance.mouseToolOptionsTheme["number-field"]}>{formatSmart(turn)}</div>
 
                 <VanillaResolver.instance.ToolButton
                     src="Media/Glyphs/ThickStrokeArrowUp.svg"
@@ -169,6 +182,30 @@ export const HelixPanelSection = () => {
                     onSelect={() => trigger("MertsToolBox", "HelixToggleDirection")}
                 />
             </VanillaResolver.instance.Section>
+
+            {/* MERT LISTBOX (KLASİK) */}
+            <MertListBox
+                items={presetList}
+                isOpen={presetPanelOpen}
+                onToggleOpen={() => {
+                    setPresetPanelOpen(!presetPanelOpen);
+                    if (!presetPanelOpen) trigger("MertsToolBox", "RefreshPresetList");
+                }}
+                onSave={async () => {
+                    const success = await call<boolean>("MertsToolBox", "SavePreset", activeTool.id);
+                    if (success) {
+                        trigger("MertsToolBox", "RefreshPresetList");
+                    }
+                    return success;
+                }}
+                onSelect={(presetName) => {
+                    trigger("MertsToolBox", "LoadPreset", presetName);
+                    setPresetPanelOpen(false);
+                }}
+                onDelete={(presetName) => {
+                    trigger("MertsToolBox", "DeletePreset", presetName);
+                }}
+            />
         </div>
     );
 };

@@ -12,6 +12,9 @@ namespace MertsToolBox.Systems
         #region 1. QUERIES & STATE
 
         private EntityQuery m_ToolErrorPrefabQuery;
+        private bool m_LastHelixActive;
+        private bool m_LastPierElevationBypass;
+        private bool m_HasAppliedOnce;
 
         #endregion
 
@@ -42,6 +45,18 @@ namespace MertsToolBox.Systems
         protected override void OnUpdate()
         {
             bool helixActive = MertToolState.HelixCleanupRequested;
+            bool pierElevationBypass = MertToolState.HelixPierElevationBypassRequested;
+
+            if (m_HasAppliedOnce &&
+                helixActive == m_LastHelixActive &&
+                pierElevationBypass == m_LastPierElevationBypass)
+            {
+                return;
+            }
+
+            m_HasAppliedOnce = true;
+            m_LastHelixActive = helixActive;
+            m_LastPierElevationBypass = pierElevationBypass;
 
             using var prefabs = m_ToolErrorPrefabQuery.ToEntityArray(Allocator.Temp);
 
@@ -49,12 +64,19 @@ namespace MertsToolBox.Systems
             {
                 var data = EntityManager.GetComponentData<ToolErrorData>(entity);
 
-                if (data.m_Error != ErrorType.OverlapExisting)
+                bool isOverlapError = data.m_Error == ErrorType.OverlapExisting;
+                bool isElevationTooLowError = data.m_Error == ErrorType.LowElevation;
+
+                if (!isOverlapError && !isElevationTooLowError)
                     continue;
+
+                bool shouldSuppress =
+                    (isOverlapError && helixActive) ||
+                    (isElevationTooLowError && pierElevationBypass);
 
                 var flags = data.m_Flags;
 
-                if (helixActive)
+                if (shouldSuppress)
                 {
                     flags |= ToolErrorFlags.DisableInGame;
                     flags |= ToolErrorFlags.DisableInEditor;

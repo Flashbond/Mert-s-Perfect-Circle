@@ -9,7 +9,8 @@ namespace MertsToolBox.Management
     public enum ToolExitMode
     {
         None,
-        SilentTabClose,
+        SilentCategoryClose,
+        SilentMenuClose,
         UserSelectionClose,
         RestoreFromEscape,
         RestoreFromPlacement
@@ -19,29 +20,71 @@ namespace MertsToolBox.Management
     public static class MertToolState
     {
         #region Events & Global Context States
+        public static readonly Dictionary<Entity, (Entity category, NetPrefab road)> LastSelectionByMenu = new();
+
+        public static void RememberSelectionForMenu(Entity menu, Entity category, NetPrefab road)
+        {
+            if (menu == Entity.Null || category == Entity.Null || road == null)
+                return;
+
+            LastSelectionByMenu[menu] = (category, road);
+        }
+
+        public static bool TryGetSelectionForMenu(Entity menu, out Entity category, out NetPrefab road)
+        {
+            category = Entity.Null;
+            road = null;
+
+            if (menu == Entity.Null)
+                return false;
+
+            if (!LastSelectionByMenu.TryGetValue(menu, out var value))
+                return false;
+
+            category = value.category;
+            road = value.road;
+
+            return category != Entity.Null && road != null;
+        }
+        public static readonly HashSet<Entity> SupportedToolboxMenus = new();
+
+        public static bool IsToolboxSupportedMenu(Entity menu)
+        {
+            return menu != Entity.Null && SupportedToolboxMenus.Contains(menu);
+        }
+
+        public static void RememberSupportedMenu(Entity menu)
+        {
+            if (menu != Entity.Null)
+                SupportedToolboxMenus.Add(menu);
+        }
         public static Action<ToolExitMode> OnToolAbortedByUI;
         public static NetPrefab LastResolvedRoadPrefab { get; set; } = null;
-        public static Entity LastResolvedCategory { get; set; } = Entity.Null;
-
         public static NetPrefab LaunchRoadPrefab { get; set; } = null;
         public static Entity LaunchCategory { get; set; } = Entity.Null;
-
         public static NetPrefab LiveUiRoadPrefab { get; set; } = null;
         public static Entity LiveUiCategory { get; set; } = Entity.Null;
+        public static Entity LastResolvedCategory { get; set; } = Entity.Null;
+
+        public static Entity LiveUiMenu = Entity.Null;
+
+        public static bool ToolbarNavigationInProgress = false;
+
+        public static ToolExitMode ToolbarNavigationMode = ToolExitMode.None;
 
         private static readonly Dictionary<Entity, NetPrefab> s_LastRoadPerCategory = new();
         public static MertBaseToolSystem ActiveTool { get; set; } = null;
-        public static bool IsMertToolActive =>
-            ActiveTool != null && ActiveTool.ToolEnabled;
         #endregion
 
         #region Suppression & Control Flags
         public static bool HelixCleanupRequested { get; set; } = false;
+        public static bool HelixPierElevationBypassRequested = false;
         public static bool BlockRoadPrefabFallbackUntilNextRealSelection { get; set; } = false;
         public static bool SuppressUiMemoryCapture { get; set; } = false;
         public static bool SuppressCategoryCapture { get; set; } = false;
         public static bool HasReleasedStaleObjectToolThisFrame { get; set; } = false;
         public static bool UserJustChangedAssetCategory { get; set; } = false;
+        public static bool UserJustChangedAssetMenu { get; set; } = false;
         public static bool SuppressUiAbortDuringRestore { get; set; } = false;
         public static bool SuppressLiveUiCapture { get; set; } = false;
         public static bool SuppressToolChangedDuringColdstart { get; set; } = false;
@@ -53,11 +96,10 @@ namespace MertsToolBox.Management
         public static NetPrefab TabHandoffFromRoad { get; set; } = null;
         public static Entity TabHandoffFromCategory { get; set; } = Entity.Null;
         public static Entity TabHandoffToCategory { get; set; } = Entity.Null;
-
         public static bool PendingRestore { get; private set; } = false;
         public static ToolExitMode PendingRestoreMode { get; private set; } = ToolExitMode.None;
         public static NetPrefab PendingRestoreRoad { get; private set; } = null;
-        public static Entity PendingRestoreCategory { get; private set; } = Entity.Null;
+        public static Entity PendingRestoreCategory { get; private set; } = Entity.Null;  
         #endregion
 
         #region Context Management
@@ -127,6 +169,24 @@ namespace MertsToolBox.Management
             TabHandoffFromRoad = null;
             TabHandoffFromCategory = Entity.Null;
             TabHandoffToCategory = Entity.Null;
+        }
+
+        public static void BeginToolbarNavigation(ToolExitMode mode)
+        {
+            ToolbarNavigationInProgress = true;
+            ToolbarNavigationMode = mode;
+
+            UserJustChangedAssetMenu = mode == ToolExitMode.SilentMenuClose;
+            UserJustChangedAssetCategory = mode == ToolExitMode.SilentCategoryClose;
+        }
+
+        public static void ClearToolbarNavigation()
+        {
+            ToolbarNavigationInProgress = false;
+            ToolbarNavigationMode = ToolExitMode.None;
+
+            UserJustChangedAssetMenu = false;
+            UserJustChangedAssetCategory = false;
         }
         #endregion
     }

@@ -139,7 +139,6 @@ namespace MertsToolBox
                 if (s_WarmupRuntimeStampEntity == Entity.Null || !EntityManager.Exists(s_WarmupRuntimeStampEntity))
                     return false;
 
-                PrepareRuntimeStampSnapMetadata(s_WarmupRuntimeStampEntity);
                 return true;
             }
             catch (Exception e)
@@ -281,7 +280,7 @@ namespace MertsToolBox
 
                 if (!IsEligibleRoadForPrebake(roadPrefab))
                     continue;
-
+                RememberSupportedMenuForRoad(roadPrefab);
                 discoveredCount++;
 
                 if (!s_BakeStateByRoadEntity.TryGetValue(entity, out var state))
@@ -321,7 +320,28 @@ namespace MertsToolBox
                 s_StampBakeSessionSealed = true;
             }
         }
+        private void RememberSupportedMenuForRoad(NetPrefab roadPrefab)
+        {
+            if (roadPrefab == null)
+                return;
 
+            Entity roadEntity = m_PrefabSystem.GetEntity(roadPrefab);
+
+            if (roadEntity == Entity.Null)
+                return;
+
+            if (!MertToolbarHandoffMemory.TryResolveCategoryFromAsset(
+                    roadEntity,
+                    out Entity category))
+                return;
+
+            if (!MertToolbarHandoffMemory.TryResolveMenuFromCategory(
+                    category,
+                    out Entity menu))
+                return;
+
+            MertToolState.RememberSupportedMenu(menu);
+        }
         /// <summary>
         /// Determines whether the specified road prefab meets the criteria required for generating a dedicated prebaked stamp.
         /// </summary>
@@ -444,7 +464,6 @@ namespace MertsToolBox
                     return false;
                 }
 
-                PrepareRuntimeStampSnapMetadata(stampEntity);
 
                 s_StampByRoadEntity[roadEntity] = stamp;
                 s_StampEntityByRoadEntity[roadEntity] = stampEntity;
@@ -750,6 +769,8 @@ namespace MertsToolBox
                 if (!setOk)
                     return;
 
+                if (RequiresSnapEnforcement)
+                   ApplySnapMaskToActiveTool();
             }
             catch (Exception e)
             {
@@ -764,17 +785,6 @@ namespace MertsToolBox
         {
             m_PendingObjectToolHandoff = false;
             m_PendingHandoffStamp = null;
-        }
-        #endregion
-
-        #region Reflection Utilities
-        /// <summary>
-        /// Sets a private field value within the object tool system using reflection.
-        /// </summary>
-        private void SetObjectToolPrivateField(string fieldName, object value)
-        {
-            try { m_ObjectToolSystem?.GetType().GetField(fieldName, PrivateInstanceFlags)?.SetValue(m_ObjectToolSystem, value); }
-            catch { }
         }
         #endregion
     }
