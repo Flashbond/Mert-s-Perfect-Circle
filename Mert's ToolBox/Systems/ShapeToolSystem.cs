@@ -244,10 +244,7 @@ namespace MertsToolBox.Systems
             if (m_CurrentSessionDimension < minAllowed)
                 m_CurrentSessionDimension = minAllowed;
 
-            subNets = null;
-            widthCells = 0;
-            depthCells = 0;
-            costElevation = 0f;
+            subNets = null; widthCells = depthCells = 0; costElevation = 0f;
 
             float inputD = m_CurrentSessionDimension - m_CurrentRoadWidth;
             if (inputD <= 0f)
