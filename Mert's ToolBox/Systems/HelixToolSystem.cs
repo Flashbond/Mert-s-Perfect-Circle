@@ -421,6 +421,7 @@ namespace MertsToolBox.Systems
             float buildRadius = (m_CurrentSessionDiameter - m_CurrentRoadWidth) * 0.5f;
 
             if (buildRadius < m_CurrentRoadWidth) return false;
+
             float turns = math.max(1f, m_CurrentSessionTurns);
             int segments = math.max(2, (int)math.ceil(turns * 8f));
             float baseElevation = GetCurrentNetToolElevation();
