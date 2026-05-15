@@ -34,7 +34,7 @@
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/merts-perfect-circle-feedback-suggestions-bug-reports.1911521/" />
 
 	<!--Version of the mod-->
-	<ModVersion Value="2.6.1" />
+	<ModVersion Value="2.6.2" />
 
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.5.*" />
@@ -47,8 +47,7 @@
 
 	<!--Change log for new version-->
 	<ChangeLog>
-		* Elevation fix for Perfect Shape Tool
-		* Elevation controls added for Helix Tool
+		* Missing settings definition added for Soft Block Tool
 	</ChangeLog>
 
 	<!--External links-->

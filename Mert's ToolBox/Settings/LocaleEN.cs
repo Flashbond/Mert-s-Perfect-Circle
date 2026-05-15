@@ -96,6 +96,9 @@ namespace MertsToolBox.Settings
                 { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForSoftBlockBorderRadius)), "Use Ctrl+Wheel for border radius adjustment" },
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForSoftBlockBorderRadius)), "Allows the Soft Block border radius to be adjusted with Ctrl+Mouse Wheel. Recommended to turn this off if it conflicts with another binding." },
 
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockBorderRadius)), "Default border radius (R)" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultSoftBlockBorderRadius)), "Sets the border radius when the Soft Block tool is opened." },
+
                 // -------------------------
                 // Grid
                 // -------------------------
