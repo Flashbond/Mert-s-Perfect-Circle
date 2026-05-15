@@ -50,7 +50,7 @@ namespace MertsToolBox.Core
         /// </summary>
         public void OnDispose()
         {
-            m_Harmony?.UnpatchAll();
+            m_Harmony?.UnpatchAll("com.mert.toolbox");
             settings?.UnregisterInOptionsUI();
             settings = null;
         }

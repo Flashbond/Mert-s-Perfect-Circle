@@ -101,7 +101,7 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Indicates whether this tool requires elevation enforcement.
         /// </summary>
-        protected override bool HandlesOwnElevationInput => false;
+        protected override bool HandlesOwnElevationInput => true;
 
         #endregion
 

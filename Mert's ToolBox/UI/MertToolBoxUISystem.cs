@@ -329,6 +329,7 @@ namespace MertsToolBox
             AddUpdateBinding(new MertPolledBinding<float>(ModId, "ElevationValue", () =>
             {
                 if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.GetCurrentNetToolElevation();
+                if (m_Helix != null && m_Helix.ToolEnabled) return m_Helix.GetCurrentNetToolElevation();
                 if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.GetCurrentNetToolElevation();
                 if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.GetCurrentNetToolElevation();
 
@@ -424,6 +425,7 @@ namespace MertsToolBox
             AddBinding(new TriggerBinding(ModId, "ElevationUp", () =>
             {
                 if (m_Shape != null && m_Shape.ToolEnabled) m_Shape.QueueElevationChangeFromUi(+1);
+                else if (m_Helix != null && m_Helix.ToolEnabled) m_Helix.QueueElevationChangeFromUi(+1);
                 else if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) m_SoftBlock.QueueElevationChangeFromUi(+1);
                 else if (m_Grid != null && m_Grid.ToolEnabled) m_Grid.QueueElevationChangeFromUi(+1);
             }));
@@ -431,6 +433,7 @@ namespace MertsToolBox
             AddBinding(new TriggerBinding(ModId, "ElevationDown", () =>
             {
                 if (m_Shape != null && m_Shape.ToolEnabled) m_Shape.QueueElevationChangeFromUi(-1);
+                else if (m_Helix != null && m_Helix.ToolEnabled) m_Helix.QueueElevationChangeFromUi(-1);
                 else if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) m_SoftBlock.QueueElevationChangeFromUi(-1);
                 else if (m_Grid != null && m_Grid.ToolEnabled) m_Grid.QueueElevationChangeFromUi(-1);
             }));

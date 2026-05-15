@@ -20,6 +20,7 @@ const shapeShapeName$ = bindValue<string>("MertsToolBox", "ShapeShapeName", "Cir
 const elevationValue$ = bindValue<number>("MertsToolBox", "ElevationValue");
 const elevationStepValue$ = bindValue<number>("MertsToolBox", "ElevationStepValue");
 const elevationStepArray$ = bindValue<number[]>("MertsToolBox", "ElevationStepArray");
+
 const isSnapGeometryActive$ = bindValue<boolean>("MertsToolBox", "IsSnapGeometryActive");
 const isSnapNetSideActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetSideActive");
 const isSnapNetAreaActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetAreaActive");

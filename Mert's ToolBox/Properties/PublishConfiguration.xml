@@ -34,7 +34,7 @@
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/merts-perfect-circle-feedback-suggestions-bug-reports.1911521/" />
 
 	<!--Version of the mod-->
-	<ModVersion Value="2.6.0" />
+	<ModVersion Value="2.6.1" />
 
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.5.*" />
@@ -47,18 +47,12 @@
 
 	<!--Change log for new version-->
 	<ChangeLog>
-		* Perfect Circle Tool replaced by Perfect Roundabout Tool
-		* Preset System added
-		* Soft Block Tool support for transportation tracks
-		* Procedural Helix Tool support for pedestrian piers
-		* Undo/Redo System added
-		* Keyboard shortcuts added
-		* Bug fix: Menu switch was not persistent while the tool is opened
-		* Bug fix: Sometimes the tool preview might appear far from the pointer
+		* Elevation fix for Perfect Shape Tool
+		* Elevation controls added for Helix Tool
 	</ChangeLog>
 
 	<!--External links-->
-	<ExternalLink Type="github" Url="https://github.com/Flashbond/Mert-s-ToolBox/tree/test" />
+	<ExternalLink Type="github" Url="https://github.com/Flashbond/Mert-s-ToolBox/" />
 	<!-- İstersen YouTube ekle -->
 
 	<!--Supported values Public, Private, Unlisted-->

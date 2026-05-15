@@ -27,6 +27,16 @@ namespace MertsToolBox.Management
             if (menu == Entity.Null || category == Entity.Null || road == null)
                 return;
 
+            if (!MertToolbarHandoffMemory.TryResolveEntity(road, out Entity roadEntity))
+                return;
+
+            if (!MertToolbarHandoffMemory.TryResolveCategoryFromAsset(
+                    roadEntity,
+                    out Entity realCategory))
+                return;
+
+            if (realCategory != category) return;
+
             LastSelectionByMenu[menu] = (category, road);
         }
 

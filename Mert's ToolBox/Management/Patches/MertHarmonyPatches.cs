@@ -21,6 +21,16 @@ namespace MertsToolBox.Management.Patches
             if (MertToolState.SuppressLiveUiCapture)
                 return;
 
+            bool toolOpen = MertToolbarHandoffMemory.IsAnyCustomToolOpen();
+
+            bool mertContextActive =
+                toolOpen ||
+                MertToolState.PendingRestore ||
+                MertToolState.ToolbarNavigationInProgress;
+
+            if (!mertContextActive)
+                return;
+
             if (!MertToolbarHandoffMemory.IsSupportedNetPrefab(assetEntity, out var netPrefab))
                 return;
 
@@ -40,7 +50,7 @@ namespace MertsToolBox.Management.Patches
                 }
             }
 
-            if (!MertToolbarHandoffMemory.IsAnyCustomToolOpen())
+            if (!toolOpen)
                 return;
 
             if (MertToolState.TabHandoffActive)
@@ -119,16 +129,16 @@ namespace MertsToolBox.Management.Patches
             MertToolState.OnToolAbortedByUI?.Invoke(ToolExitMode.SilentMenuClose);
         }
     }
-     [HarmonyPatch(typeof(ToolbarUISystem), "Apply",
-     new Type[]
-     {
+    [HarmonyPatch(typeof(ToolbarUISystem), "Apply",
+        new Type[]
+        {
         typeof(List<Entity>),
         typeof(List<Entity>),
         typeof(Entity),
         typeof(Entity),
         typeof(Entity),
         typeof(bool)
-     })]
+        })]
     public static class ToolbarUISystem_Apply_HandoffPatch
     {
         public static void Prefix(
@@ -168,14 +178,38 @@ namespace MertsToolBox.Management.Patches
                 }
 
                 if (MertToolState.TryGetSelectionForMenu(
-                        assetMenuEntity,
-                        out Entity rememberedCategory,
-                        out NetPrefab rememberedRoad) &&
-                    rememberedRoad != null &&
-                    MertToolbarHandoffMemory.TryResolveEntity(
-                        rememberedRoad,
-                        out Entity rememberedRoadEntity))
+                assetMenuEntity,
+                out Entity rememberedCategory,
+                out NetPrefab rememberedRoad) &&
+                rememberedRoad != null &&
+                MertToolbarHandoffMemory.TryResolveEntity(
+                rememberedRoad,
+                out Entity rememberedRoadEntity))
                 {
+                    if (!MertToolbarHandoffMemory.TryResolveCategoryFromAsset(
+                            rememberedRoadEntity,
+                            out Entity realRememberedCategory))
+                    {
+                        MertToolState.ClearToolbarNavigation();
+                        MertToolState.ClearPendingRestore();
+                        return;
+                    }
+
+                    if (realRememberedCategory != rememberedCategory)
+                    {
+                        MertToolState.ClearToolbarNavigation();
+                        MertToolState.ClearPendingRestore();
+                        return;
+                    }
+
+                    if (assetCategoryEntity != Entity.Null &&
+                        assetCategoryEntity != rememberedCategory)
+                    {
+                        MertToolState.ClearToolbarNavigation();
+                        MertToolState.ClearPendingRestore();
+                        return;
+                    }
+
                     if (assetEntity != rememberedRoadEntity)
                     {
                         assetCategoryEntity = rememberedCategory;

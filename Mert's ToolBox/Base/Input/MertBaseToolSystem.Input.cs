@@ -482,12 +482,20 @@ namespace MertsToolBox
             }
 
             MertToolState.CaptureLaunchContext(road, category);
+
+            if (road == null || category == Entity.Null)
+                return;
+
             MertToolState.RememberRoadForCategory(category, road);
-            if (road != null &&
-    category != Entity.Null &&
-    MertToolbarHandoffMemory.TryResolveMenuFromCategory(category, out Entity menu))
+
+            if (MertToolbarHandoffMemory.TryResolveMenuFromCategory(
+                    category,
+                    out Entity menu))
             {
-                MertToolState.RememberSelectionForMenu(menu, category, road);
+                MertToolState.RememberSelectionForMenu(
+                    menu,
+                    category,
+                    road);
             }
         }
 

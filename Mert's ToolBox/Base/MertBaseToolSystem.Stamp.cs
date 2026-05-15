@@ -3,7 +3,6 @@ using Game.Prefabs;
 using MertsToolBox.Core;
 using MertsToolBox.Management;
 using System;
-using System.Reflection;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -12,7 +11,6 @@ namespace MertsToolBox
     public abstract partial class MertBaseToolSystem
     {
         #region Fields & Constants
-        private static readonly BindingFlags PrivateInstanceFlags = BindingFlags.Instance | BindingFlags.NonPublic;
         private int m_WaitCounter = 0;
 
         private static AssetStampPrefab s_WarmupRuntimeStamp;

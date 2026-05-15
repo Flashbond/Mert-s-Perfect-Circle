@@ -256,7 +256,7 @@ namespace MertsToolBox.Systems
             int sides = m_AllowedSides[m_CurrentSidesIndex];
 
             float buildR;
-
+            costElevation = GetCurrentNetToolElevation();
             if (sides == 0)
             {
                 buildR = inputD * 0.5f;
@@ -275,7 +275,7 @@ namespace MertsToolBox.Systems
                 {
                     buildR = inputD * 0.5f;
                 }
-
+              
                 subNets = BuildPolygonSubNets(roadPrefab, buildR, sides, costElevation);
             }
 

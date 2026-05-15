@@ -24,6 +24,10 @@ const helixClearanceStepArray$ = bindValue<number[]>("MertsToolBox", "HelixClear
 
 const helixIsClockwise$ = bindValue<boolean>("MertsToolBox", "HelixIsClockwise");
 
+const elevationValue$ = bindValue<number>("MertsToolBox", "ElevationValue");
+const elevationStepValue$ = bindValue<number>("MertsToolBox", "ElevationStepValue");
+const elevationStepArray$ = bindValue<number[]>("MertsToolBox", "ElevationStepArray");
+
 const presetList$ = bindValue<string>("MertsToolBox", "PresetList", "");
 
 // --- COMPONENT DEFINITION ---
@@ -70,6 +74,10 @@ export const HelixPanelSection = () => {
     const clearanceStepValues = useValue(helixClearanceStepArray$) as number[];
 
     const isClockwise = useValue(helixIsClockwise$) as boolean;
+
+    const elevationValue = useValue(elevationValue$) as number;
+    const elevationStepValue = useValue(elevationStepValue$) as number;
+    const elevationStepValues = useValue(elevationStepArray$) as number[];
 
     const presetListRaw = useValue(presetList$) as string;
 
@@ -180,6 +188,35 @@ export const HelixPanelSection = () => {
                     tooltip={!isClockwise ? "CCW ON" : "CCW OFF"}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
                     onSelect={() => trigger("MertsToolBox", "HelixToggleDirection")}
+                />
+            </VanillaResolver.instance.Section>
+
+            {/* ELEVATION ROW */}
+            <VanillaResolver.instance.Section title="Elevation">
+                <VanillaResolver.instance.ToolButton
+                    src="Media/Glyphs/ThickStrokeArrowDown.svg"
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    onSelect={() => trigger("MertsToolBox", "ElevationDown")}
+                />
+
+                <div className={VanillaResolver.instance.mouseToolOptionsTheme["number-field"]}>
+                    {formatMeters(elevationValue)}
+                </div>
+
+                <VanillaResolver.instance.ToolButton
+                    src="Media/Glyphs/ThickStrokeArrowUp.svg"
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    onSelect={() => trigger("MertsToolBox", "ElevationUp")}
+                />
+
+                <VanillaResolver.instance.StepToolButton
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    tooltip={`${elevationStepValue}`}
+                    values={elevationStepValues}
+                    selectedValue={elevationStepValue}
+                    onSelect={(val) => {
+                        trigger("MertsToolBox", "ElevationStep", val);
+                    }}
                 />
             </VanillaResolver.instance.Section>
 
