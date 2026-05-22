@@ -1,6 +1,6 @@
 ﻿using Colossal.Entities;
 using Game.Prefabs;
-using Game.Tools;
+using Game.UI.InGame;
 using MertsToolBox.Core;
 using MertsToolBox.Management;
 using System;
@@ -43,7 +43,7 @@ namespace MertsToolBox
             Unknown,
             Road,
             Track,
-            PierPedestrian
+            Pier
         }
 
         private struct MertRoadProfile
@@ -102,7 +102,6 @@ namespace MertsToolBox
 
             return m_CachedApplyAction;
         }
-
         protected virtual void ProcessElevationInput()
         {
             if (!ToolEnabled || !HandlesOwnElevationInput)
@@ -144,9 +143,8 @@ namespace MertsToolBox
                     BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public
                 );
 
-                var keyMap = prop?.GetValue(im) as Dictionary<string, HashSet<Game.Input.ProxyAction>>;
 
-                if (keyMap != null)
+                if (prop?.GetValue(im) is Dictionary<string, HashSet<Game.Input.ProxyAction>> keyMap)
                 {
                     foreach (var kv in keyMap)
                     {
@@ -247,14 +245,8 @@ namespace MertsToolBox
         /// <summary>
         /// Monitors inputs to gracefully exit the tool or confirm placement when appropriate.
         /// </summary>
-        protected void CheckExitAndPlacementInputs()
+        protected void CheckPlacementInputs()
         {
-            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
-            {
-                ExecuteGracefulExit(ToolExitMode.RestoreFromEscape);
-                return;
-            }
-
             Game.Input.ProxyAction applyAction = GetApplyActionLegal();
 
             if (applyAction != null && applyAction.WasPerformedThisFrame())
@@ -284,6 +276,7 @@ namespace MertsToolBox
                 return false;
 
             Entity currentPrefabEntity = m_PrefabSystem.GetEntity(currentNetPrefab);
+
             if (currentPrefabEntity == Entity.Null || !EntityManager.Exists(currentPrefabEntity))
                 return false;
 
@@ -360,15 +353,14 @@ namespace MertsToolBox
                     internalName.Contains("transport") ||
                     internalName.Contains("bus");
 
-                bool isPierPedestrian =
-                    internalName.Contains("pier") ||
-                    internalName.Contains("pedestrian");
+                bool isPier =
+                    internalName.Contains("pier");
 
                 profile.Kind = MertNetKind.Unknown;
 
-                if (isPierPedestrian)
+                if (isPier)
                 {
-                    profile.Kind = MertNetKind.PierPedestrian;
+                    profile.Kind = MertNetKind.Pier;
                 }
                 else if (isTrack)
                 {
@@ -388,23 +380,23 @@ namespace MertsToolBox
                 {
                     rejectionReason = "Not Placeable";
                 }
-                else if (!isRoad && !isTrack && !isPierPedestrian)
+                else if (!isRoad && !isTrack && !isPier)
                 {
                     rejectionReason = "Invalid Net Type";
                 }
                 else if (
                     profile.Kind == MertNetKind.Road &&
                     !isTransitRoad &&
-                    !isPierPedestrian &&
+                    !isPier &&
                     profile.Width < 7.9f)
                 {
                     rejectionReason = $"Too Narrow Road (Width: {profile.Width} < 8)";
                 }
-                else if (hasInvalidDNA && !isPierPedestrian)
+                else if (hasInvalidDNA && !isPier)
                 {
                     rejectionReason = $"Invalid DNA Found: {matchedDNAInfo}";
                 }
-                else if (isRoad && !hasRoadData && !isPierPedestrian)
+                else if (isRoad && !hasRoadData && !isPier)
                 {
                     rejectionReason = "Missing RoadData Component";
                 }
@@ -471,41 +463,16 @@ namespace MertsToolBox
         protected void CaptureLaunchRestoreContext()
         {
             NetPrefab road = TryGetCurrentSelectedRoadPrefab();
+
             Entity category = Entity.Null;
 
-            if (road != null &&
-                MertToolbarHandoffMemory.TryResolveEntity(road, out Entity roadEntity))
-            {
-                MertToolbarHandoffMemory.TryResolveCategoryFromAsset(
-                    roadEntity,
-                    out category);
-            }
+            MertToolState.CaptureLaunchContext(
+                road,
+                category);
 
-            MertToolState.CaptureLaunchContext(road, category);
-
-            if (road == null || category == Entity.Null)
-                return;
-
-            MertToolState.RememberRoadForCategory(category, road);
-
-            if (MertToolbarHandoffMemory.TryResolveMenuFromCategory(
-                    category,
-                    out Entity menu))
-            {
-                MertToolState.RememberSelectionForMenu(
-                    menu,
-                    category,
-                    road);
-            }
-        }
-
-        /// <summary>
-        /// Determines whether the given exit mode warrants restoring the launch context.
-        /// </summary>
-        protected bool ShouldRestoreLaunchContext(ToolExitMode exitMode)
-        {
-            return exitMode == ToolExitMode.RestoreFromEscape
-                || exitMode == ToolExitMode.RestoreFromPlacement;
+            MertToolState.CaptureResolvedRoadContext(
+                road,
+                category);
         }
 
         /// <summary>
@@ -520,58 +487,46 @@ namespace MertsToolBox
                 MertToolState.ActiveTool = null;
 
             ToolEnabled = false;
+           
             ResetRuntimeStamp();
 
             try
             {
                 if (m_ObjectToolSystem != null)
                 {
-                    
                     ModRuntime.TrySetField(m_ObjectToolSystem, "m_SelectedPrefab", null);
                     ModRuntime.TrySetField(m_ObjectToolSystem, "m_Prefab", null);
-                    ModRuntime.TrySetField(m_ObjectToolSystem, "prefab", null);
                 }
             }
             catch { }
 
-            if (exitMode == ToolExitMode.SilentCategoryClose)
+            if (exitMode == ToolExitMode.UserSelectionClose) return;
+
+            if (exitMode == ToolExitMode.VanillaToolbarClear)  return;
+            
+            if (exitMode == ToolExitMode.RestoreFromPlacement)
             {
-                RefreshRoadToolbarSelectionWithoutToolSwitch();
+                RestoreLaunchRoadViaSelectAsset();
                 return;
             }
-
-            if (exitMode == ToolExitMode.SilentMenuClose)
-            {
-                MertToolState.ClearPendingRestore();
-                return;
-            }
-
-            if (exitMode == ToolExitMode.UserSelectionClose)
+        }
+        private void RestoreLaunchRoadViaSelectAsset()
+        {
+            NetPrefab road = MertToolState.LaunchRoadPrefab;
+            if (road == null)
                 return;
 
-            if (MertToolState.ToolbarNavigationInProgress)
-            {
-                MertToolState.ClearPendingRestore();
+            if (!MertToolbarHandoffMemory.TryResolveEntity(road, out Entity roadEntity))
                 return;
-            }
 
-            if (ShouldRestoreLaunchContext(exitMode))
-            {
-                NetPrefab road = MertToolState.LaunchRoadPrefab;
-                Entity category = MertToolState.LaunchCategory;
-
-                MertToolState.QueueRestore(exitMode, road, category);
-
-                var netTool = World.GetOrCreateSystemManaged<NetToolSystem>();
-
-                if (m_ToolSystem != null && netTool != null)
-                {
-                    m_ToolSystem.selected = Entity.Null;
-                    m_ToolSystem.activeTool = netTool;
-                }
-
+            var toolbar = World.GetExistingSystemManaged<ToolbarUISystem>();
+            if (toolbar == null)
                 return;
-            }
+
+            MertToolbarReflection.ReplaySelectAsset(
+                toolbar,
+                roadEntity,
+                true);
         }
 
         /// <summary>
@@ -621,57 +576,6 @@ namespace MertsToolBox
         }
 
         /// <summary>
-        /// Silently restores the vanilla toolbar's asset selection memory and releases object tool locks to prevent UI desyncs during category transitions.
-        /// </summary>
-        protected void RefreshRoadToolbarSelectionWithoutToolSwitch()
-        {
-            try
-            {
-                if (m_PrefabSystem == null)
-                    return;
-
-                NetPrefab road = MertToolState.LaunchRoadPrefab ?? MertToolState.LastResolvedRoadPrefab;
-                if (road == null)
-                    return;
-
-                Entity roadEntity = m_PrefabSystem.GetEntity(road);
-                if (roadEntity == Entity.Null)
-                    return;
-
-                var toolbarUISystem = World.GetExistingSystemManaged<Game.UI.InGame.ToolbarUISystem>();
-                if (toolbarUISystem == null)
-                    return;
-
-                var flags = System.Reflection.BindingFlags.Instance |
-                            System.Reflection.BindingFlags.Public |
-                            System.Reflection.BindingFlags.NonPublic;
-
-                var selectAsset = toolbarUISystem.GetType()
-                    .GetMethod("SelectAsset", flags, null, new Type[] { typeof(Entity), typeof(bool) }, null);
-
-                if (selectAsset == null)
-                    return;
-
-                MertToolState.SuppressUiMemoryCapture = true;
-                MertToolState.SuppressCategoryCapture = true;
-
-                try
-                {
-                    selectAsset.Invoke(toolbarUISystem, new object[] { roadEntity, false });
-                }
-                finally
-                {
-                    MertToolState.SuppressUiMemoryCapture = false;
-                    MertToolState.SuppressCategoryCapture = false;
-                }
-            }
-            catch (Exception e)
-            {
-                ModRuntime.Warn("RefreshRoadToolbarSelectionWithoutToolSwitch failed: " + e.Message);
-            }
-        }
-
-        /// <summary>
         /// Safely extracts the currently selected asset entity directly from the vanilla toolbar UI using reflection.
         /// </summary>
         protected bool TryGetVanillaSelectedAssetEntity(out Entity selectedAssetEntity)
@@ -716,15 +620,14 @@ namespace MertsToolBox
             return netPrefab is TrackPrefab;
         }
 
-        protected bool IsPierPedestrianPrefab(PrefabBase prefab)
+        protected bool IsPierPrefab(PrefabBase prefab)
         {
             if (prefab is not NetPrefab netPrefab)
                 return false;
 
             string name = netPrefab.name?.ToLowerInvariant() ?? "";
 
-            return name.Contains("pier") ||
-                   name.Contains("pedestrian");
+            return name.Contains("pier");
         }
         #endregion
 

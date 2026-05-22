@@ -37,6 +37,9 @@
 	  <UpToDateCheckInput Remove="Mert%27s ToolBox\**" />
 	  <UpToDateCheckInput Remove="ui-dist\**" />
 	</ItemGroup>
+	<ItemGroup>
+	  <Compile Remove="Base\ZoneBrowserProvider.cs" />
+	</ItemGroup>
 	
 	<ItemGroup>
 		<Reference Include="0Harmony">

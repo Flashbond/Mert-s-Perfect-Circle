@@ -1,5 +1,6 @@
 ﻿using Colossal.Entities;
 using Game.Prefabs;
+using Game.Tools;
 using MertsToolBox.Core;
 using MertsToolBox.Management;
 using System;
@@ -17,6 +18,7 @@ namespace MertsToolBox
         private static Entity s_WarmupRuntimeStampEntity;
         private static bool s_WarmupStampRegistered;
         #endregion
+
 
         #region Initialization & Prebaking
         /// <summary>
@@ -278,7 +280,7 @@ namespace MertsToolBox
 
                 if (!IsEligibleRoadForPrebake(roadPrefab))
                     continue;
-                RememberSupportedMenuForRoad(roadPrefab);
+
                 discoveredCount++;
 
                 if (!s_BakeStateByRoadEntity.TryGetValue(entity, out var state))
@@ -317,28 +319,6 @@ namespace MertsToolBox
             {
                 s_StampBakeSessionSealed = true;
             }
-        }
-        private void RememberSupportedMenuForRoad(NetPrefab roadPrefab)
-        {
-            if (roadPrefab == null)
-                return;
-
-            Entity roadEntity = m_PrefabSystem.GetEntity(roadPrefab);
-
-            if (roadEntity == Entity.Null)
-                return;
-
-            if (!MertToolbarHandoffMemory.TryResolveCategoryFromAsset(
-                    roadEntity,
-                    out Entity category))
-                return;
-
-            if (!MertToolbarHandoffMemory.TryResolveMenuFromCategory(
-                    category,
-                    out Entity menu))
-                return;
-
-            MertToolState.RememberSupportedMenu(menu);
         }
         /// <summary>
         /// Determines whether the specified road prefab meets the criteria required for generating a dedicated prebaked stamp.
@@ -603,7 +583,6 @@ namespace MertsToolBox
             }
             return changed;
         }
-
         #endregion
 
         #region Mutation & Shape Generation
@@ -643,15 +622,16 @@ namespace MertsToolBox
                 return false;
 
             Entity refreshedEntity = RefreshRuntimeStampEntity(m_RuntimeStamp);
+
             if (refreshedEntity != Entity.Null && EntityManager.Exists(refreshedEntity))
             {
                 RuntimeStampEntity = refreshedEntity;
                 m_PrefabSystem.UpdatePrefab(m_RuntimeStamp, refreshedEntity);
             }
 
+            MarkRuntimeStampChanged();
             m_PendingObjectToolHandoff = true;
             m_PendingHandoffStamp = m_RuntimeStamp;
-
             return true;
         }
 
@@ -711,14 +691,17 @@ namespace MertsToolBox
                 return false;
 
             if (RequiresSnapEnforcement)
-            {
                 PrepareRuntimeStampSnapMetadata(refreshedEntity);
-            }
 
             AssetStampPrefab stampToHandOff = m_PendingHandoffStamp;
-            ClearPendingHandoff();
 
+            if (stampToHandOff == null)
+                return false;
+
+            ClearPendingHandoff();
             HandoffToObjectTool(stampToHandOff);
+
+            
             return true;
         }
 
@@ -755,24 +738,43 @@ namespace MertsToolBox
 
             try
             {
-                if (m_ToolSystem.activeTool != m_ObjectToolSystem)
+                bool toolSwitchNeeded = m_ToolSystem.activeTool != m_ObjectToolSystem;
+                bool stampChanged = m_LastHandedOffStamp != stamp;
+                bool geometryChanged = m_LastHandedOffRevision != m_RuntimeStampRevision;
+
+                if (!toolSwitchNeeded && !stampChanged && !geometryChanged)
+                    return;
+
+                if (toolSwitchNeeded)
                 {
                     m_ToolSystem.selected = Entity.Null;
                     m_ToolSystem.activeTool = m_ObjectToolSystem;
                 }
 
-                ModRuntime.TrySetField(m_ObjectToolSystem, "m_SelectedPrefab", null);
-                ModRuntime.TrySetField(m_ObjectToolSystem, "m_Prefab", null);
-                bool setOk = m_ObjectToolSystem.TrySetPrefab(stamp);
-                if (!setOk)
-                    return;
+                if (stampChanged || geometryChanged)
+                {
+                    ModRuntime.TrySetField(m_ObjectToolSystem, "m_SelectedPrefab", null);
+                    ModRuntime.TrySetField(m_ObjectToolSystem, "m_Prefab", null);
+
+                    bool setOk = m_ObjectToolSystem.TrySetPrefab(stamp);
+                    if (!setOk)
+                        return;
+
+                    m_ObjectToolSystem.InitializeRaycast();
+
+                    m_LastHandedOffStamp = stamp;
+                    m_LastHandedOffRevision = m_RuntimeStampRevision;
+                }
+
+                if (m_ObjectToolSystem.mode != ObjectToolSystem.Mode.Stamp)
+                    m_ObjectToolSystem.mode = ObjectToolSystem.Mode.Stamp;
 
                 if (RequiresSnapEnforcement)
-                   ApplySnapMaskToActiveTool();
+                    ApplySnapMaskToActiveTool();
             }
             catch (Exception e)
             {
-                ModRuntime.Warn($"HandoffToObjectTool error: {e.Message}");
+                ModRuntime.Warn($"HandoffToObjectTool error: {e}");
             }
         }
 
@@ -783,6 +785,10 @@ namespace MertsToolBox
         {
             m_PendingObjectToolHandoff = false;
             m_PendingHandoffStamp = null;
+        }
+        private void MarkRuntimeStampChanged()
+        {
+            m_RuntimeStampRevision++;
         }
         #endregion
     }

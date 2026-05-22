@@ -9,27 +9,15 @@ namespace MertsToolBox.Systems
 {
     public partial class HelixToolErrorFlagSystem : GameSystemBase
     {
-        #region 1. QUERIES & STATE
-
         private EntityQuery m_ToolErrorPrefabQuery;
-        private bool m_LastHelixActive;
-        private bool m_LastPierElevationBypass;
-        private bool m_HasAppliedOnce;
 
-        #endregion
-
-        #region 2. ECS LIFECYCLE
-
-        /// <summary>
-        /// Initializes the entity query required to find tool error prefabs and sets update requirements.
-        /// </summary>
         protected override void OnCreate()
         {
             base.OnCreate();
 
             m_ToolErrorPrefabQuery = GetEntityQuery(new EntityQueryDesc
             {
-                All = new ComponentType[]
+                All = new[]
                 {
                     ComponentType.ReadOnly<ToolErrorData>(),
                     ComponentType.ReadOnly<NotificationIconData>()
@@ -39,61 +27,41 @@ namespace MertsToolBox.Systems
             RequireForUpdate(m_ToolErrorPrefabQuery);
         }
 
-        /// <summary>
-        /// Evaluates the Helix tool's active state and dynamically suppresses the 'OverlapExisting' error flag to allow overlapping road networks.
-        /// </summary>
         protected override void OnUpdate()
         {
-            bool helixActive = MertToolState.HelixCleanupRequested;
-            bool pierElevationBypass = MertToolState.HelixPierElevationBypassRequested;
-
-            if (m_HasAppliedOnce &&
-                helixActive == m_LastHelixActive &&
-                pierElevationBypass == m_LastPierElevationBypass)
-            {
+            if (!MertToolState.HelixCleanupRequested)
                 return;
-            }
 
-            m_HasAppliedOnce = true;
-            m_LastHelixActive = helixActive;
-            m_LastPierElevationBypass = pierElevationBypass;
+            bool isPier = MertToolState.ActiveHelixUsesPierLikePrefab;
 
             using var prefabs = m_ToolErrorPrefabQuery.ToEntityArray(Allocator.Temp);
 
-            foreach (var entity in prefabs)
+            foreach (Entity entity in prefabs)
             {
-                var data = EntityManager.GetComponentData<ToolErrorData>(entity);
+                ToolErrorData data = EntityManager.GetComponentData<ToolErrorData>(entity);
 
-                bool isOverlapError = data.m_Error == ErrorType.OverlapExisting;
-                bool isElevationTooLowError = data.m_Error == ErrorType.LowElevation;
-
-                if (!isOverlapError && !isElevationTooLowError)
+                if (!ShouldSuppress(data.m_Error, isPier))
                     continue;
 
-                bool shouldSuppress =
-                    (isOverlapError && helixActive) ||
-                    (isElevationTooLowError && pierElevationBypass);
+                ToolErrorFlags desired =
+                    data.m_Flags |
+                    ToolErrorFlags.DisableInGame |
+                    ToolErrorFlags.DisableInEditor;
 
-                var flags = data.m_Flags;
+                if (desired == data.m_Flags)
+                    continue;
 
-                if (shouldSuppress)
-                {
-                    flags |= ToolErrorFlags.DisableInGame;
-                    flags |= ToolErrorFlags.DisableInEditor;
-                }
-                else
-                {
-                    flags &= ~ToolErrorFlags.DisableInGame;
-                    flags &= ~ToolErrorFlags.DisableInEditor;
-                }
-
-                if (flags != data.m_Flags)
-                {
-                    data.m_Flags = flags;
-                    EntityManager.SetComponentData(entity, data);
-                }
+                data.m_Flags = desired;
+                EntityManager.SetComponentData(entity, data);
             }
         }
-        #endregion
+
+        private static bool ShouldSuppress(ErrorType error, bool isPier)
+        {
+            return error == ErrorType.OverlapExisting ||
+                   error == ErrorType.LowElevation ||
+                   error == ErrorType.NotEnoughClearance ||
+                   (isPier && error == ErrorType.SteepSlope);
+        }
     }
 }

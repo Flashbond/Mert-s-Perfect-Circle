@@ -31,14 +31,14 @@
     max-height: 0;
     overflow: hidden;
     background-color: var(--toolbarButtonColor);
-    border: 1rem solid transparent;
+    border: 0rem solid unquote("rgba(255, 255, 255, 0.15)");
     border-radius: 10rem;
-    transition: max-height 0.3s ease, border-color 0.3s ease, margin-top 0.3s ease;
+    transition: max-height 0.3s ease, border-width 0s, margin-top 0.3s ease;
 
     &.open {
         max-height: 180rem;
-        border-color: unquote("rgba(255, 255, 255, 0.15)");
         overflow-y: auto;
+        border-width: 1rem;
     }
 }
 

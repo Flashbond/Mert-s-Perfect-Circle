@@ -38,16 +38,18 @@ namespace MertsToolBox
         protected NetPrefab m_LastUsedRoadPrefab;
         private AssetStampPrefab m_PendingHandoffStamp;
         protected double m_SuppressPlacementUntil;
+        private AssetStampPrefab m_LastHandedOffStamp;
 
+        private int m_LastHandedOffRevision = -1;
+        private int m_RuntimeStampRevision;
         public bool ToolEnabled { get; protected set; }
         public abstract string ToolId { get; }
         public abstract string ToolName { get; }
 
         /// <summary>
-        /// Indicates whether overlapping placement is permitted for the active tool.
+        /// Helix permissions.
         /// </summary>
         protected virtual bool AllowOverlapPlacement => false;
-
         /// <summary>
         /// Indicates whether this tool overrides global snap settings.
         /// </summary>
@@ -128,6 +130,7 @@ namespace MertsToolBox
                 Mod.settings.OnToolParametersChanged += RetrieveParametersFromSettings;
             }
         }
+
         /// <summary>
         /// Executes the main logic loop including input processing, prebaking, and shape handoffs.
         /// </summary>
@@ -138,19 +141,20 @@ namespace MertsToolBox
 
             if (!ToolEnabled)
                 return;
-
+            
             KeepVanillaElevationDisabled();
 
             ProcessElevationInput();
             ProcessToolInput();
-            CheckExitAndPlacementInputs();
+            CheckPlacementInputs();
 
             if (m_PendingObjectToolHandoff && HandlePendingObjectToolHandoff())
                 return;
-
+   
             if (m_PendingCreateShape)
                 HandleExecuteCreateShape();
         }
+
         private void KeepVanillaElevationDisabled()
         {
             try
@@ -272,17 +276,6 @@ namespace MertsToolBox
 
             return true;
         }
-
-        /// <summary>
-        /// Caches the current road and category context to memory prior to an interface handoff.
-        /// </summary>
-        protected void PrimeTabHandoffSourceContext()
-        {
-            NetPrefab road = GetCurrentRealRoadForTabHandoff();
-            Entity category = GetCurrentRealCategoryForTabHandoff();
-
-            MertToolState.PrimeTabHandoffSource(road, category);
-        }
         #endregion
 
         #region Data & Prefab Retrieval
@@ -369,33 +362,42 @@ namespace MertsToolBox
         {
             return TryGetCurrentSelectedRoadPrefab();
         }
-        public bool IsCurrentTrackLikePrefab()
+        public static bool IsTrackLikePrefab(NetPrefab prefab)
         {
-            NetPrefab prefab = TryGetCurrentSelectedRoadPrefab();
-
-            if (prefab == null) return false;
-            
-            string lower = prefab.name?.ToLowerInvariant() ?? string.Empty;
-
-            bool isTrack = prefab is TrackPrefab;
-            bool isTransport =
-                lower.Contains("transport") ||
-                lower.Contains("bus");
-
-            bool result = isTrack || isTransport;
-
-            return result;
-        }
-        public bool IsCurrentPierLikePrefab()
-        {
-            NetPrefab prefab = TryGetCurrentSelectedRoadPrefab();
             if (prefab == null)
                 return false;
 
             string lower = prefab.name?.ToLowerInvariant() ?? string.Empty;
 
-            return lower.Contains("pier") ||
-                   lower.Contains("pedestrian");
+            bool isTrack = prefab is TrackPrefab;
+
+            bool isTransport =
+                lower.Contains("transport") ||
+                lower.Contains("bus");
+
+            return isTrack || isTransport;
+        }
+        public bool IsCurrentTrackLikePrefab()
+        {
+            NetPrefab prefab = TryGetCurrentSelectedRoadPrefab();
+            return IsTrackLikePrefab(prefab);
+        }
+
+
+        public static bool IsPierLikePrefab(NetPrefab prefab)
+        {
+            if (prefab == null || string.IsNullOrEmpty(prefab.name))
+                return false;
+
+            string name = prefab.name.ToLowerInvariant();
+
+            return name.Contains("pier");
+        }
+        protected bool IsCurrentPierLikePrefab()
+        {
+            NetPrefab current = TryGetCurrentSelectedRoadPrefab();
+
+            return IsPierLikePrefab(current);
         }
         #endregion
 

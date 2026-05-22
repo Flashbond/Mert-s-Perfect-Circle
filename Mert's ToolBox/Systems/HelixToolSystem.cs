@@ -1,3 +1,4 @@
+using Colossal.Mathematics;
 using Game.Prefabs;
 using MertsToolBox.Core;
 using MertsToolBox.Management;
@@ -90,10 +91,9 @@ namespace MertsToolBox.Systems
         }
         #endregion
         /// <summary>
-        /// Indicates whether this tool allows overlapping placements.
+        /// Helix permissions.
         /// </summary>
         protected override bool AllowOverlapPlacement => true;
-
         /// <summary>
         /// Indicates whether this tool requires snap enforcement.
         /// </summary>
@@ -223,17 +223,23 @@ namespace MertsToolBox.Systems
         /// </summary>
         private int GetMinimumAllowedDiameter()
         {
-            float multiplier = m_CurrentRoadWidth * 3f;
+            float minDiameter = IsCurrentPierLikePrefab()
+                ? m_CurrentRoadWidth * 3.0f
+                : GetMinHelixDiameterByPillarClearance(m_CurrentRoadWidth);
 
-            return (int)math.ceil(multiplier);
+            return (int)math.ceil(minDiameter);
         }
         private float GetMinimumAllowedClearance()
         {
-            return IsCurrentPierLikePrefab() ? 2.5f : 8.0f;
+            return IsCurrentPierLikePrefab() ? 3.5f : 8.0f;
         }
         private float GetMaximumAllowedClearance()
         {
             return IsCurrentPierLikePrefab() ? 5.0f : 15.0f;
+        }
+        private float GetMinHelixDiameterByPillarClearance(float roadWidth)
+        {
+            return (2f * math.PI * roadWidth) + 7f;
         }
         #endregion
 
@@ -246,7 +252,10 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Called when the tool is deactivated to perform necessary cleanup flags.
         /// </summary>
-        protected override void OnToolDeactivated() { MertToolState.HelixCleanupRequested = false; }
+        protected override void OnToolDeactivated() {
+            MertToolState.HelixCleanupRequested = false;
+            MertToolState.ActiveHelixUsesPierLikePrefab = false;
+        }
         #endregion
 
         #region Core Tool Processing
@@ -256,7 +265,7 @@ namespace MertsToolBox.Systems
         protected override void ProcessToolInput()
         {
             if (!ToolEnabled) return;
-            MertToolState.HelixPierElevationBypassRequested = ToolEnabled && IsCurrentPierLikePrefab();
+  
             if (m_TargetDiameterStep != -1)
             {
                 m_CurrentDiameterStepIndex = GetIndexFromValue(
@@ -416,19 +425,29 @@ namespace MertsToolBox.Systems
         {
             OptimizeAccordingToMaxSlopeLimit();
 
-            subNets = null; widthCells =depthCells = 0; costElevation = 0f;
+            subNets = null;
+            widthCells = depthCells = 0;
+            costElevation = 0f;
 
             float buildRadius = (m_CurrentSessionDiameter - m_CurrentRoadWidth) * 0.5f;
 
-            if (buildRadius < m_CurrentRoadWidth) return false;
+            if (buildRadius < m_CurrentRoadWidth)
+                return false;
 
-            float turns = math.max(1f, m_CurrentSessionTurns);
+            float turns = math.max(0.5f, m_CurrentSessionTurns);
             int segments = math.max(2, (int)math.ceil(turns * 8f));
             float baseElevation = GetCurrentNetToolElevation();
 
-            subNets = BuildHelixSubNets(roadPrefab, buildRadius, segments, baseElevation, m_CurrentSessionClearance, m_CurrentSessionTurns);
+            bool isPier = IsCurrentPierLikePrefab();
+            MertToolState.ActiveHelixUsesPierLikePrefab = isPier;
+
+            float entryTailLength = isPier ? 1.5f : 1.0f;
+            float exitTailLength = isPier ? 0.5f : 1.0f;
+
+            subNets = BuildHelixSubNets(roadPrefab, buildRadius, segments, baseElevation, m_CurrentSessionClearance, turns, entryTailLength, exitTailLength);
+
             widthCells = depthCells = (int)math.ceil(m_CurrentSessionDiameter / 8f);
-            costElevation = m_CurrentSessionClearance * m_CurrentSessionTurns;
+            costElevation = m_CurrentSessionClearance * turns;
 
             return true;
         }
@@ -436,55 +455,143 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Builds the bezier curves representing the helix's sub-networks based on mathematical parameters.
         /// </summary>
-        private ObjectSubNetInfo[] BuildHelixSubNets(NetPrefab roadPrefab, float radius, int segments, float startElevation, float clearance, float totalTurns)
+        /// <summary>
+        /// Builds the bezier curves representing the helix's sub-networks based on mathematical parameters.
+        /// </summary>
+        private ObjectSubNetInfo[] BuildHelixSubNets(NetPrefab roadPrefab, float radius, int segments, float startElevation, float clearance, float totalTurns, float entryTailLength, float exitTailLength)
         {
             segments = math.max(8, segments);
-            totalTurns = math.max(2f, totalTurns);
-            ObjectSubNetInfo[] result = new ObjectSubNetInfo[segments];
+            totalTurns = math.max(0.5f, totalTurns);
+
+            // ==========================================
+            // DENEY PARAMETRELERİ (Bağımsız Kontroller)
+            // ==========================================
+            float entryRampLength = radius * entryTailLength; // 1. Parça Uzunluğu
+            float exitRampLength = radius * exitTailLength;  // 3. Parça Uzunluğu
+
+            // YENİ: Giriş ve Çıkış eğimleri tamamen ayrıldı!
+            float entryCustomSlope = 0.12f; // Giriş topografyaya inat sert başlasın (%10)
+            float exitCustomSlope = 0.0f;   // Çıkış olabildiğince düz/flat bitsin (%0)
+
+            // 1 Giriş + Ana Helix Segmentleri + 1 Çıkış
+            ObjectSubNetInfo[] result = new ObjectSubNetInfo[segments + 2];
 
             float stepRadian = (totalTurns * math.PI * 2f) / segments;
             float stepHeight = (clearance * totalTurns) / segments;
+
+            // Heliksin kendi doğal tırmanma eğimi
+            float helixSlope = clearance / (math.PI * 2f * radius);
             float tangentLength = radius * math.tan(stepRadian / 4f) * (4f / 3f);
-            float slope = clearance / (math.PI * 2f * radius);
 
             float dirMultiplier = m_IsClockwise ? -1f : 1f;
-
+            
+            // --- HELİX TEĞETLERİ ---
             float3[] points = new float3[segments + 1];
             float3[] forwardTangents = new float3[segments + 1];
 
             for (int i = 0; i <= segments; i++)
             {
                 float a = i * stepRadian;
-                points[i] = new float3(
-                    math.cos(a) * radius,
-                    startElevation + (i * stepHeight),
-                    math.sin(a) * radius * dirMultiplier
-                );
-
                 forwardTangents[i] = math.normalizesafe(new float3(
                     -math.sin(a),
-                    slope,
+                    helixSlope,
                     math.cos(a) * dirMultiplier
                 ));
             }
 
+            // --- ÖZEL RAMPA TEĞETLERİ ---
+            // Giriş (Sert)
+            float3 startFlatDir = math.normalizesafe(new float3(forwardTangents[0].x, 0f, forwardTangents[0].z));
+            float3 entryCustomTangent = math.normalizesafe(new float3(startFlatDir.x, entryCustomSlope, startFlatDir.z));
+
+            // Çıkış (Düz/Flat)
+            float3 endFlatDir = math.normalizesafe(new float3(forwardTangents[segments].x, 0f, forwardTangents[segments].z));
+            float3 exitCustomTangent = math.normalizesafe(new float3(endFlatDir.x, exitCustomSlope, endFlatDir.z));
+
+            // Yükseklik telafisi giriş eğimi ile hesaplanıyor
+            float tailHeightDrop = entryCustomTangent.y * entryRampLength;
+
+            // --- NOKTALARI YERLEŞTİRME ---
+            for (int i = 0; i <= segments; i++)
+            {
+                float a = i * stepRadian;
+                points[i] = new float3(
+                    math.cos(a) * radius,
+                    startElevation + tailHeightDrop + (i * stepHeight),
+                    math.sin(a) * radius * dirMultiplier
+                );
+            }
+            // ==========================================
+            // 1. GİRİŞ SEGMENTİ: TOPRAĞI YALAYAN BAŞLANGIÇ
+            // ==========================================
+            float startOffset = 0.5f;
+
+            float3 bottomStart = new float3(
+                points[0].x - (startFlatDir.x * entryRampLength),
+                startElevation + startOffset, // <-- Buraya küçük bir yükseklik veriyoruz
+                points[0].z - (startFlatDir.z * entryRampLength)
+            );
+
+            // points[0] noktasının (heliksin başlangıcı) yüksekliği, topraktan başlayan
+            // bu rampanın tırmanışına göre tam olarak ayarlanıyor.
+            points[0] = new float3(points[0].x, startElevation + startOffset + tailHeightDrop, points[0].z);
+
+            result[0] = new ObjectSubNetInfo
+            {
+                m_NetPrefab = roadPrefab,
+                m_BezierCurve = new Bezier4x3(
+                    bottomStart,
+
+                    // KONTROL 1: Y ekseninde SIFIR değişim. 
+                    // bottomStart ile aynı yükseklikte olduğu için asfalt toprağı yalar.
+                    bottomStart + (startFlatDir * (entryRampLength / 3f)),
+
+                    // KONTROL 2: Helix'in eğimiyle karşılıyoruz (Tırmanış burada başlar)
+                    points[0] - (forwardTangents[0] * (entryRampLength / 3f)),
+
+                    points[0] // Bitiş (Helikse bağlanan nokta)
+                ),
+                m_NodeIndex = new int2(0, 1),
+                m_ParentMesh = new int2(-1, -1)
+            };
+
+            // ==========================================
+            // 2. PARÇA: NORMAL HELIX SEGMENTLERİ
+            // ==========================================
             for (int i = 0; i < segments; i++)
             {
-                result[i] = new ObjectSubNetInfo
+                result[i + 1] = new ObjectSubNetInfo
                 {
-
                     m_NetPrefab = roadPrefab,
-                    m_BezierCurve = new Colossal.Mathematics.Bezier4x3(
+                    m_BezierCurve = new Bezier4x3(
                         points[i],
                         points[i] + forwardTangents[i] * tangentLength,
                         points[i + 1] - forwardTangents[i + 1] * tangentLength,
                         points[i + 1]
                     ),
-                    m_NodeIndex = new int2(i, i + 1),
+                    m_NodeIndex = new int2(i + 1, i + 2),
                     m_ParentMesh = new int2(-1, -1)
                 };
-
             }
+
+            // ==========================================
+            // 3. PARÇA: ÇIKIŞ RAMPASI (Düz/Flat)
+            // ==========================================
+            float3 topEnd = points[segments] + (exitCustomTangent * exitRampLength);
+
+            result[segments + 1] = new ObjectSubNetInfo
+            {
+                m_NetPrefab = roadPrefab,
+                m_BezierCurve = new Bezier4x3(
+                    points[segments],
+                    points[segments] + (exitCustomTangent * (exitRampLength / 3f)),
+                    topEnd - (exitCustomTangent * (exitRampLength / 3f)),
+                    topEnd
+                ),
+                m_NodeIndex = new int2(segments + 1, segments + 2),
+                m_ParentMesh = new int2(-1, -1)
+            };
+
             return result;
         }
         #endregion

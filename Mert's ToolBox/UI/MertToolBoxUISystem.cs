@@ -1,4 +1,3 @@
-using Colossal.Entities;
 using Colossal.UI.Binding;
 using Game.Input;
 using Game.Prefabs;
@@ -107,7 +106,6 @@ namespace MertsToolBox
                 m_ToolSystem.EventToolChanged += OnToolChanged;
 
             RegisterBindings();
-            MertToolState.OnToolAbortedByUI += HandleToolAbortedByUi;
 
             m_OpenShapeToolAction = Mod.settings?.GetAction(ToolBoxSettings.OpenShapeTool);
             m_OpenHelixToolAction = Mod.settings?.GetAction(ToolBoxSettings.OpenHelixTool);
@@ -135,8 +133,12 @@ namespace MertsToolBox
 
             MertToolState.HasReleasedStaleObjectToolThisFrame = false;
 
-            TryReleaseStaleStampAfterReload();
-            TryProcessPendingRestore();
+            if (!MertToolState.ControlledClearSelectionReplay &&
+                !MertToolState.ControlledSelectAssetReplay &&
+                !MertToolState.ControlledSelectCategoryReplay)
+            {
+                TryReleaseStaleStampAfterReload();
+            }
 
             ProcessHotkeys();
         }
@@ -152,7 +154,6 @@ namespace MertsToolBox
                 m_ToolSystem.EventToolChanged -= OnToolChanged;
             }
 
-            MertToolState.OnToolAbortedByUI -= HandleToolAbortedByUi;
             base.OnDestroy();
         }
         #endregion
@@ -160,9 +161,6 @@ namespace MertsToolBox
         #region UI Bindings Registration
         private void ProcessHotkeys()
         {
-            if (MertToolState.SuppressUiAbortDuringRestore)
-                return;
-
             MertBaseToolSystem activeTool = GetActiveCustomTool();
 
             if (activeTool != null)
@@ -215,21 +213,27 @@ namespace MertsToolBox
                 () => m_Shape?.GetCurrentDimension() ?? 96));
             AddUpdateBinding(new MertPolledBinding<int>(ModId, "ShapeDimensionStepValue",
                 () => m_Shape?.GetDimensionStepSize() ?? 8));
-            AddUpdateBinding(new MertPolledBinding<string>(ModId, "ShapeShapeName",
-                () => m_Shape != null ? m_Shape.GetShapeName(m_Shape.GetCurrentSides()) : "Circle"));
             AddBinding(new ValueBinding<int[]>(
                 ModId,
                 "ShapeDimensionStepArray",
                 m_Shape?.m_DimensionSteps ?? Array.Empty<int>(),
                 new ArrayWriter<int>()
             ));
-            AddUpdateBinding(new MertPolledBinding<int>(ModId, "ShapeSides",
-                () => m_Shape?.GetCurrentSides() ?? 0));
-            AddBinding(new ValueBinding<int[]>(
+            AddBinding(new ValueBinding<string[]>(
                 ModId,
-                "ShapeAllowedSidesArray",
-                m_Shape?.m_AllowedSides ?? Array.Empty<int>(),
-                new ArrayWriter<int>()
+                "ShapeNamesArray",
+                ShapeToolSystem.ShapeDefinitions.Select(s => s.Name).ToArray(),
+                new ArrayWriter<string>()
+            ));
+            AddUpdateBinding(new MertPolledBinding<int>(
+                ModId,
+                "ShapeCurrentIndex",
+                () => m_Shape?.GetCurrentSidesIndex() ?? 0
+            ));
+            AddUpdateBinding(new MertPolledBinding<int>(
+                ModId,
+                "ShapeMaxIndex",
+                () => ShapeToolSystem.ShapeDefinitions.Length - 1
             ));
 
             // Helix Bindings
@@ -399,9 +403,7 @@ namespace MertsToolBox
             // Global Triggers
             AddBinding(new TriggerBinding<string>(ModId, "ToggleTool", (toolId) =>
             {
-                MertToolState.ClearToolbarNavigation();
-                MertToolState.ClearPendingRestore();
-
+                MertToolState.ClearControlledReplayFlags();
                 CloseTools(ToolExitMode.UserSelectionClose);
 
                 if (toolId == m_Shape?.ToolId)
@@ -555,14 +557,6 @@ namespace MertsToolBox
 
             return s_DefaultElevationSteps;
         }
-        /// <summary>
-        /// Handles forceful tool abort requests originating from the UI system.
-        /// </summary>
-        private void HandleToolAbortedByUi(ToolExitMode exitMode)
-        {
-            if (MertToolState.SuppressUiAbortDuringRestore) return;
-            CloseTools(exitMode);
-        }
 
         /// <summary>
         /// Disables all custom tools securely based on the provided exit mode.
@@ -578,57 +572,19 @@ namespace MertsToolBox
         /// <summary>
         /// Listens to global tool changes and safely closes custom tools if standard game tools take over.
         /// </summary>
+        // OnToolChanged final minimal test hali
+
         private void OnToolChanged(ToolBaseSystem tool)
         {
             if (MertToolState.SuppressToolChangedDuringColdstart)
                 return;
-
-            if (MertToolState.SuppressUiAbortDuringRestore)
-                return;
-
-            var objectTool = World.GetOrCreateSystemManaged<ObjectToolSystem>();
-            var netTool = World.GetOrCreateSystemManaged<NetToolSystem>();
-            var defaultTool = World.GetOrCreateSystemManaged<DefaultToolSystem>();
-
-            bool isRoadBuilderTool = IsRoadBuilderTool(tool);
-
-            if (tool == defaultTool &&
-                MertToolState.ToolbarNavigationInProgress)
+        
+            if (IsRoadBuilderTool(tool))
             {
-                MertToolState.ClearPendingRestore();
-                MertToolState.ClearToolbarNavigation();
-                return;
-            }
-
-            if (MertToolState.ToolbarNavigationInProgress)
-                return;
-
-            if (isRoadBuilderTool)
-            {
-                CloseTools(ToolExitMode.UserSelectionClose);
-                return;
-            }
-
-            if (tool == defaultTool)
-            {
-                CloseTools(ToolExitMode.RestoreFromEscape);
-                return;
-            }
-
-            if (tool == netTool)
-                return;
-
-            if (tool != objectTool && tool != netTool)
-            {
-                if (TryClassifyExternalToolChange(out ToolExitMode externalExitMode))
-                {
-                    CloseTools(externalExitMode);
-                    return;
-                }
-
                 CloseTools(ToolExitMode.UserSelectionClose);
             }
         }
+
         private MertBaseToolSystem GetToolById(string toolId)
         {
             if (m_Shape != null && m_Shape.ToolId == toolId) return m_Shape;
@@ -660,8 +616,6 @@ namespace MertsToolBox
 
             if (!target.IsCurrentPrefabValid())
                 return;
-
-            MertToolState.UserJustChangedAssetCategory = false;
 
             target.SetToolState(true);
         }
@@ -697,54 +651,6 @@ namespace MertsToolBox
                 return false;
             }
         }
-        /// <summary>
-        /// Evaluates external prefab selections to determine the appropriate tool exit mode based on category synchronization.
-        /// </summary>
-        private bool TryClassifyExternalToolChange(out ToolExitMode exitMode)
-        {
-            exitMode = ToolExitMode.UserSelectionClose;
-
-            if (HasVanillaSelectedAsset())
-                return false;
-
-            var netTool = World.GetExistingSystemManaged<NetToolSystem>();
-            var prefabSystem = World.GetExistingSystemManaged<PrefabSystem>();
-
-            if (netTool == null || prefabSystem == null)
-                return false;
-
-            if (netTool.GetPrefab() is not NetPrefab currentRoad || currentRoad == null)
-                return false;
-
-            Entity roadEntity = prefabSystem.GetEntity(currentRoad);
-            if (roadEntity == Entity.Null || !World.EntityManager.Exists(roadEntity))
-                return false;
-
-            if (!MertToolbarHandoffMemory.IsSupportedNetPrefab(roadEntity, out var resolvedRoad) || resolvedRoad == null)
-                return false;
-
-            Entity newCategory = Entity.Null;
-            if (World.EntityManager.TryGetComponent(roadEntity, out UIObjectData uiObject) &&
-                uiObject.m_Group != Entity.Null)
-            {
-                newCategory = uiObject.m_Group;
-            }
-
-            Entity baselineCategory = MertToolState.LastResolvedCategory != Entity.Null
-                ? MertToolState.LastResolvedCategory
-                : MertToolState.LaunchCategory;
-
-            bool sameCategory =
-                newCategory != Entity.Null &&
-                baselineCategory != Entity.Null &&
-                newCategory == baselineCategory;
-
-            exitMode = sameCategory
-                ? ToolExitMode.UserSelectionClose
-                : ToolExitMode.SilentCategoryClose;
-
-            return true;
-        }
 
         /// <summary>
         /// Checks whether the specified tool system corresponds to the external Road Builder mod.
@@ -768,11 +674,8 @@ namespace MertsToolBox
         {
             if (m_ToolSystem == null)
                 return;
-
+          
             if (MertToolState.HasReleasedStaleObjectToolThisFrame)
-                return;
-
-            if (MertToolState.PendingRestore)
                 return;
 
             var objectTool = World.GetExistingSystemManaged<ObjectToolSystem>();
@@ -809,157 +712,10 @@ namespace MertsToolBox
             {
                 MertToolState.HasReleasedStaleObjectToolThisFrame = true;
                 ModRuntime.Log("TryReleaseStaleStampAfterReload | stale stamp detected -> SilentTabClose");
-                CloseTools(ToolExitMode.SilentCategoryClose);
+                CloseTools(ToolExitMode.VanillaToolbarClear);
             }
         }
 
-        #endregion
-
-        #region Handoff & Restore
-        /// <summary>
-        /// Processes any pending restore operations to re-establish previous tool states and selections.
-        /// </summary>
-        private void TryProcessPendingRestore()
-        {
-            if (!MertToolState.PendingRestore)
-                return;
-
-            if (MertToolState.ToolbarNavigationInProgress ||
-                MertToolState.UserJustChangedAssetMenu ||
-                MertToolState.UserJustChangedAssetCategory)
-            {
-                MertToolState.ClearPendingRestore();
-                return;
-            }
-
-            if (MertToolState.PendingRestoreMode == ToolExitMode.None)
-            {
-                MertToolState.ClearPendingRestore();
-                return;
-            }
-
-            if (MertToolState.PendingRestoreMode == ToolExitMode.RestoreFromPlacement)
-            {
-                MertToolState.ClearPendingRestore();
-                return;
-            }
-
-            if (m_ToolSystem == null)
-                return;
-
-            NetPrefab road = MertToolState.PendingRestoreRoad;
-            Entity category = MertToolState.PendingRestoreCategory;
-
-            var toolbarUISystem = World.GetExistingSystemManaged<Game.UI.InGame.ToolbarUISystem>();
-            var prefabSystem = World.GetExistingSystemManaged<PrefabSystem>();
-            var netTool = World.GetOrCreateSystemManaged<NetToolSystem>();
-
-            if (toolbarUISystem == null || prefabSystem == null || netTool == null)
-                return;
-
-            MertToolState.SuppressUiAbortDuringRestore = true;
-            MertToolState.SuppressLiveUiCapture = true;
-            MertToolState.SuppressUiMemoryCapture = true;
-            MertToolState.SuppressCategoryCapture = true;
-
-            try
-            {
-                var flags = System.Reflection.BindingFlags.Instance |
-                            System.Reflection.BindingFlags.NonPublic |
-                            System.Reflection.BindingFlags.Public;
-
-                var selectCategory = toolbarUISystem.GetType()
-                    .GetMethod("SelectAssetCategory", flags, null, new Type[] { typeof(Entity) }, null);
-
-                var selectAsset = toolbarUISystem.GetType()
-                    .GetMethod("SelectAsset", flags, null, new Type[] { typeof(Entity), typeof(bool) }, null);
-
-                bool categoryLooksValid =
-                    category != Entity.Null &&
-                    World != null &&
-                    World.EntityManager.Exists(category) &&
-                    World.EntityManager.HasComponent<UIAssetCategoryData>(category);
-
-                if (!categoryLooksValid && road != null)
-                {
-                    Entity roadEntity = prefabSystem.GetEntity(road);
-                    if (roadEntity != Entity.Null &&
-                        World.EntityManager.Exists(roadEntity) &&
-                        World.EntityManager.TryGetComponent(roadEntity, out UIObjectData uiObject) &&
-                        uiObject.m_Group != Entity.Null &&
-                        World.EntityManager.Exists(uiObject.m_Group) &&
-                        World.EntityManager.HasComponent<UIAssetCategoryData>(uiObject.m_Group))
-                    {
-                        category = uiObject.m_Group;
-                        categoryLooksValid = true;
-                    }
-                }
-
-                if (categoryLooksValid)
-                {
-                    try
-                    {
-                        selectCategory?.Invoke(toolbarUISystem, new object[] { category });
-                    }
-                    catch (TargetInvocationException tie)
-                    {
-                        ModRuntime.Warn(
-                            $"Restore category failed: {tie.InnerException?.Message ?? tie.Message}");
-                    }
-                    catch (Exception e)
-                    {
-                        ModRuntime.Warn(
-                            $"Restore category failed: {e.Message}");
-                    }
-                }
-
-                if (road != null)
-                {
-                    Entity roadEntity = prefabSystem.GetEntity(road);
-                    if (roadEntity != Entity.Null && World.EntityManager.Exists(roadEntity))
-                    {
-                        try
-                        {
-                            selectAsset?.Invoke(toolbarUISystem, new object[] { roadEntity, true });
-                        }
-                        catch (TargetInvocationException tie)
-                        {
-                            ModRuntime.Warn(
-                                $"Restore asset failed: {tie.InnerException?.Message ?? tie.Message}");
-                        }
-                        catch (Exception e)
-                        {
-                            ModRuntime.Warn($"Restore asset failed: {e.Message}");
-                        }
-                    }
-                }
-
-                m_ToolSystem.activeTool = netTool;
-                string activeAfter =
-                    m_ToolSystem?.activeTool == null ? "NULL" :
-                    m_ToolSystem.activeTool.GetType().Name;
-
-                if (road != null)
-                {
-                    try
-                    {
-                        m_ToolSystem.ActivatePrefabTool(road);
-                    }
-                    catch (Exception e)
-                    {
-                        ModRuntime.Warn($"ActivatePrefabTool failed during restore: {e.Message}");
-                    }
-                }
-            }
-            finally
-            {
-                MertToolState.SuppressCategoryCapture = false;
-                MertToolState.SuppressUiMemoryCapture = false;
-                MertToolState.SuppressLiveUiCapture = false;
-                MertToolState.SuppressUiAbortDuringRestore = false;
-                MertToolState.ClearPendingRestore();
-            }
-        }
         #endregion
 
         #region Helpers & UI Formatting Utilities
@@ -984,11 +740,17 @@ namespace MertsToolBox
         }
         private string GetToolListPipe()
         {
+            NetPrefab current =
+                m_Helix?.GetCurrentSelectedNetPrefabForUi() ??
+                m_SoftBlock?.GetCurrentSelectedNetPrefabForUi();
+
             bool isTrackLike =
-                m_SoftBlock != null && m_SoftBlock.IsCurrentTrackLikePrefab();
+                current != null &&
+                MertBaseToolSystem.IsTrackLikePrefab(current);
 
             bool isPierLike =
-                m_Helix != null && m_Helix.IsCurrentPierLikePrefab();
+                current != null &&
+                MertBaseToolSystem.IsPierLikePrefab(current);
 
             string next;
 

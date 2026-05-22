@@ -9,16 +9,29 @@ namespace MertsToolBox.Systems
 {
     public partial class ShapeToolSystem : MertBaseToolSystem
     {
+        
         #region Fields & Properties
         private int m_CurrentSessionDimension = -1;
         public readonly int[] m_DimensionSteps = new int[] { 8, 6, 4, 2 };
         private int m_CurrentDimensionStepIndex = 0;
-
         private int m_PendingDimensionChange = 0;
         private int m_TargetDimensionStep = -1;
 
-        public readonly int[] m_AllowedSides = new int[] { 3, 4, 5, 6, 7, 8, 0 };
-        private int m_CurrentSidesIndex = 6;
+        // --- DATA-DRIVEN SHAPE DEFINITIONS ---
+        // Artık şekilleri array ve tuple kullanarak tek merkezden yönetiyoruz.
+        public static readonly (int Sides, string Name)[] ShapeDefinitions = new (int, string)[]
+        {
+            (3, "Triangle"),
+            (4, "Square"),
+            (5, "Pentagon"),
+            (6, "Hexagon"),
+            (7, "Heptagon"),
+            (8, "Octagon"),
+            (0, "Circle")
+        };
+
+        // Başlangıç değerini dizinin en son elemanına (Circle) eşitliyoruz. (-1 koyarak taşırma hatasını çözdük)
+        private int m_CurrentSidesIndex = ShapeDefinitions.Length - 1;
         private int m_PendingSidesChange = 0;
 
         /// <summary>
@@ -26,6 +39,7 @@ namespace MertsToolBox.Systems
         /// </summary>
         public override string ToolId => "Shape";
         public override string ToolName => "Perfect Shape";
+        #endregion
 
         #region Preset Management
         public override MertToolPreset CreatePresetSnapshot()
@@ -34,7 +48,7 @@ namespace MertsToolBox.Systems
             string prefabName = prefab?.name ?? "UnknownRoad";
 
             int dimension = GetCurrentDimension();
-            int currentSides = m_AllowedSides[m_CurrentSidesIndex];
+            int currentSides = GetCurrentSides();
             string shapeName = GetShapeName(currentSides);
 
             return new MertToolPreset
@@ -54,20 +68,17 @@ namespace MertsToolBox.Systems
                 }
             };
         }
+
         public string GetShapeName(int sides)
         {
-            return sides switch
+            for (int i = 0; i < ShapeDefinitions.Length; i++)
             {
-                0 => "Circle",
-                3 => "Triangle",
-                4 => "Square",
-                5 => "Pentagon",
-                6 => "Hexagon",
-                7 => "Heptagon",
-                8 => "Octagon",
-                _ => throw new System.NotImplementedException(),
-            };
+                if (ShapeDefinitions[i].Sides == sides)
+                    return ShapeDefinitions[i].Name;
+            }
+            return "Unknown";
         }
+
         public override void ApplyPresetSnapshot(MertToolPreset preset)
         {
             if (preset?.Values == null)
@@ -81,7 +92,7 @@ namespace MertsToolBox.Systems
 
             QueuePreviewRebuild();
         }
-        #endregion
+
 
         /// <summary>
         /// Indicates whether this tool requires snap enforcement.
@@ -96,12 +107,10 @@ namespace MertsToolBox.Systems
             if (toolIndex != 1)
                 return;
 
-             m_CurrentSessionDimension = Mod.settings.DefaultShapeDimension;
+            m_CurrentSessionDimension = Mod.settings.DefaultShapeDimension;
 
-             QueuePreviewRebuild();
+            QueuePreviewRebuild();
         }
-
-      
 
         /// <summary>
         /// Queues a change in the diameter based on the given direction.
@@ -144,7 +153,8 @@ namespace MertsToolBox.Systems
             return (int)math.ceil(m_CurrentRoadWidth * 3f);
         }
 
-        public int GetCurrentSides() => m_AllowedSides[m_CurrentSidesIndex];
+        public int GetCurrentSides() => ShapeDefinitions[m_CurrentSidesIndex].Sides;
+        public int GetCurrentSidesIndex() => m_CurrentSidesIndex;
         #endregion
 
         #region Core Tool Processing
@@ -198,21 +208,20 @@ namespace MertsToolBox.Systems
         /// </summary>
         private void ChangeSides(int direction)
         {
-            m_CurrentSidesIndex += direction;
+            int newIndex = math.clamp(m_CurrentSidesIndex + direction, 0, ShapeDefinitions.Length - 1);
 
-            if (m_CurrentSidesIndex < 0)
-                m_CurrentSidesIndex = m_AllowedSides.Length - 1;
-            else if (m_CurrentSidesIndex >= m_AllowedSides.Length)
-                m_CurrentSidesIndex = 0;
+            if (m_CurrentSidesIndex == newIndex)
+                return;
 
+            m_CurrentSidesIndex = newIndex;
             QueuePreviewRebuild();
         }
 
         private void SetSides(int targetSides)
         {
-            for (int i = 0; i < m_AllowedSides.Length; i++)
+            for (int i = 0; i < ShapeDefinitions.Length; i++)
             {
-                if (m_AllowedSides[i] == targetSides)
+                if (ShapeDefinitions[i].Sides == targetSides)
                 {
                     if (m_CurrentSidesIndex == i)
                         return;
@@ -244,16 +253,17 @@ namespace MertsToolBox.Systems
             if (m_CurrentSessionDimension < minAllowed)
                 m_CurrentSessionDimension = minAllowed;
 
-            subNets = null; widthCells = depthCells = 0;  costElevation = 0f;
+            subNets = null; widthCells = depthCells = 0; costElevation = 0f;
 
             float inputD = m_CurrentSessionDimension - m_CurrentRoadWidth;
             if (inputD <= 0f)
                 return false;
 
-            int sides = m_AllowedSides[m_CurrentSidesIndex];
+            int sides = ShapeDefinitions[m_CurrentSidesIndex].Sides;
 
             float buildR;
             costElevation = GetCurrentNetToolElevation();
+
             if (sides == 0)
             {
                 buildR = inputD * 0.5f;
@@ -272,7 +282,7 @@ namespace MertsToolBox.Systems
                 {
                     buildR = inputD * 0.5f;
                 }
-              
+
                 subNets = BuildPolygonSubNets(roadPrefab, buildR, sides, costElevation);
             }
 

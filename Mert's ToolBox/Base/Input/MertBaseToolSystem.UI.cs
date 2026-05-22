@@ -1,3 +1,4 @@
+using Game.Prefabs;
 using MertsToolBox.Management;
 
 namespace MertsToolBox
@@ -24,9 +25,8 @@ namespace MertsToolBox
                 DisableVanillaElevation();
 
                 CaptureLaunchRestoreContext();
-                PrimeTabHandoffSourceContext();
 
-                Game.Prefabs.NetPrefab currentRoad = TryGetCurrentSelectedRoadPrefab();
+                NetPrefab currentRoad = TryGetCurrentSelectedRoadPrefab();
                 m_CurrentRoadWidth = currentRoad != null ? GetCachedRoadWidth(currentRoad) : 8f;
 
                 ClearUndoHistory();
