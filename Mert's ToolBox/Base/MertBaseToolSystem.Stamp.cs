@@ -4,6 +4,7 @@ using Game.Tools;
 using MertsToolBox.Core;
 using MertsToolBox.Management;
 using System;
+using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -17,6 +18,10 @@ namespace MertsToolBox
         private static AssetStampPrefab s_WarmupRuntimeStamp;
         private static Entity s_WarmupRuntimeStampEntity;
         private static bool s_WarmupStampRegistered;
+
+        private static bool s_ObjectToolFoundationWarmFailed;
+        private static int s_ObjectToolWarmAttempts;
+        private const int MaxObjectToolWarmAttempts = 3;
         #endregion
 
 
@@ -87,7 +92,7 @@ namespace MertsToolBox
         /// </summary>
         private bool TryPrepareWarmupStamp(NetPrefab roadPrefab)
         {
-            if (roadPrefab == null)
+            if (roadPrefab == null || m_PrefabSystem == null)
                 return false;
 
             try
@@ -98,11 +103,12 @@ namespace MertsToolBox
                     if (s_WarmupRuntimeStamp == null)
                         return false;
 
-                    s_WarmupRuntimeStampEntity = m_PrefabSystem.GetEntity(s_WarmupRuntimeStamp);
                     s_WarmupStampRegistered = true;
                 }
 
-                if (!s_WarmupRuntimeStamp.TryGet<ObjectSubNets>(out var subNets) || subNets == null)
+                ObjectSubNets subNets;
+
+                if (!s_WarmupRuntimeStamp.TryGet<ObjectSubNets>(out subNets) || subNets == null)
                     subNets = s_WarmupRuntimeStamp.AddComponent<ObjectSubNets>();
 
                 subNets.m_SubNets = new[]
@@ -111,39 +117,39 @@ namespace MertsToolBox
             {
                 m_NetPrefab = roadPrefab,
                 m_BezierCurve = new Colossal.Mathematics.Bezier4x3(
-                            new float3(0f, 0f, 0f),
-                            new float3(2f, 0f, 0f),
-                            new float3(4f, 0f, 0f),
-                            new float3(6f, 0f, 0f)
-                        ),
-                        m_NodeIndex = new int2(0, 1),
-                        m_ParentMesh = new int2(-1, -1)
-                    }
-                };
+                    new float3(0f, 0f, 0f),
+                    new float3(2f, 0f, 0f),
+                    new float3(4f, 0f, 0f),
+                    new float3(6f, 0f, 0f)
+                ),
+                m_NodeIndex = new int2(0, 1),
+                m_ParentMesh = new int2(-1, -1)
+            }
+        };
 
                 s_WarmupRuntimeStamp.m_Width = 4;
                 s_WarmupRuntimeStamp.m_Depth = 4;
                 s_WarmupRuntimeStamp.asset?.MarkDirty();
 
-                if (s_WarmupRuntimeStampEntity == Entity.Null || !EntityManager.Exists(s_WarmupRuntimeStampEntity))
-                {
-                    s_WarmupRuntimeStampEntity = m_PrefabSystem.GetEntity(s_WarmupRuntimeStamp);
-                }
-
-                if (s_WarmupRuntimeStampEntity == Entity.Null || !EntityManager.Exists(s_WarmupRuntimeStampEntity))
-                    return false;
-
-                m_PrefabSystem.UpdatePrefab(s_WarmupRuntimeStamp, s_WarmupRuntimeStampEntity);
                 s_WarmupRuntimeStampEntity = m_PrefabSystem.GetEntity(s_WarmupRuntimeStamp);
 
-                if (s_WarmupRuntimeStampEntity == Entity.Null || !EntityManager.Exists(s_WarmupRuntimeStampEntity))
+                if (s_WarmupRuntimeStampEntity == Entity.Null ||
+                    !EntityManager.Exists(s_WarmupRuntimeStampEntity))
                     return false;
 
-                return true;
+                m_PrefabSystem.UpdatePrefab(
+                    s_WarmupRuntimeStamp,
+                    s_WarmupRuntimeStampEntity);
+
+                s_WarmupRuntimeStampEntity =
+                    m_PrefabSystem.GetEntity(s_WarmupRuntimeStamp);
+
+                return s_WarmupRuntimeStampEntity != Entity.Null &&
+                       EntityManager.Exists(s_WarmupRuntimeStampEntity);
             }
             catch (Exception e)
             {
-                ModRuntime.Warn($"[WARMUP] TryPrepareWarmupStamp error: {e.Message}");
+                ModRuntime.Warn($"[WARMUP] Prepare skipped: {e.GetType().Name}: {e.Message}");
                 return false;
             }
         }
@@ -156,6 +162,9 @@ namespace MertsToolBox
         /// </summary>
         private void TryLatePrebakeWithRealRoad()
         {
+            if (s_ObjectToolFoundationWarmed || s_ObjectToolFoundationWarmFailed)
+                return;
+
             if (m_WaitCounter++ < 60)
                 return;
 
@@ -164,40 +173,9 @@ namespace MertsToolBox
             EnsurePerRoadBakeSessionStarted();
 
             if (!s_StampBakeSessionSealed)
-            {
                 RunPerRoadStampBakePass();
-            }
 
-            if (s_ObjectToolFoundationWarmed)
-                return;
-
-            EntityQuery query = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<Game.Prefabs.NetData>(),
-                ComponentType.ReadOnly<Game.Prefabs.PrefabData>()
-            );
-
-            if (query.IsEmptyIgnoreFilter)
-                return;
-
-            using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
-
-            NetPrefab warmupRoad = null;
-
-            foreach (var entity in entities)
-            {
-                if (!m_PrefabSystem.TryGetPrefab<PrefabBase>(entity, out var prefab))
-                    continue;
-
-                if (prefab is not NetPrefab net)
-                    continue;
-
-                if (string.Equals(net.name, "Small Road", StringComparison.OrdinalIgnoreCase))
-                {
-                    warmupRoad = net;
-                    break;
-                }
-            }
-
+            NetPrefab warmupRoad = TryFindWarmupRoadPrefab();
             if (warmupRoad == null)
                 return;
 
@@ -207,18 +185,29 @@ namespace MertsToolBox
             m_RuntimeStamp = s_WarmupRuntimeStamp;
             RuntimeStampEntity = s_WarmupRuntimeStampEntity;
 
+            if (RuntimeStampEntity == Entity.Null ||
+                !EntityManager.Exists(RuntimeStampEntity))
+                return;
+
             TryWarmObjectToolPreviewFoundationOnce();
         }
 
-        /// <summary>
-        /// Warms up the object tool preview foundation once to prevent cold start issues.
-        /// </summary>
         private void TryWarmObjectToolPreviewFoundationOnce()
         {
-            if (s_ObjectToolFoundationWarmed)
+            if (s_ObjectToolFoundationWarmed || s_ObjectToolFoundationWarmFailed)
                 return;
 
-            if (m_ObjectToolSystem == null || m_RuntimeStamp == null)
+            if (++s_ObjectToolWarmAttempts > MaxObjectToolWarmAttempts)
+            {
+                s_ObjectToolFoundationWarmFailed = true;
+                return;
+            }
+
+            if (m_ObjectToolSystem == null ||
+                m_ToolSystem == null ||
+                m_RuntimeStamp == null ||
+                RuntimeStampEntity == Entity.Null ||
+                !EntityManager.Exists(RuntimeStampEntity))
                 return;
 
             try
@@ -236,17 +225,49 @@ namespace MertsToolBox
                 if (!setOk)
                     return;
 
+                m_ObjectToolSystem.InitializeRaycast();
+
                 s_ObjectToolFoundationWarmed = true;
+            }
+            catch (KeyNotFoundException e)
+            {
+                ModRuntime.Warn($"[COLDSTART] Warm foundation delayed: {e.Message}");
             }
             catch (Exception e)
             {
-                ModRuntime.Warn($"[COLDSTART] Warm foundation error: {e.Message}");
+                s_ObjectToolFoundationWarmFailed = true;
+                ModRuntime.Warn($"[COLDSTART] Warm foundation skipped: {e.GetType().Name}: {e.Message}");
             }
             finally
             {
                 MertToolState.SuppressToolbarCaptureDuringColdstart = false;
                 MertToolState.SuppressToolChangedDuringColdstart = false;
             }
+        }
+
+        private NetPrefab TryFindWarmupRoadPrefab()
+        {
+            EntityQuery query = EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<Game.Prefabs.NetData>(),
+                ComponentType.ReadOnly<Game.Prefabs.PrefabData>()
+            );
+
+            if (query.IsEmptyIgnoreFilter)
+                return null;
+
+            using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
+
+            foreach (Entity entity in entities)
+            {
+                if (!m_PrefabSystem.TryGetPrefab<PrefabBase>(entity, out var prefab))
+                    continue;
+
+                if (prefab is NetPrefab net &&
+                    string.Equals(net.name, "Small Road", StringComparison.OrdinalIgnoreCase))
+                    return net;
+            }
+
+            return null;
         }
 
         /// <summary>
