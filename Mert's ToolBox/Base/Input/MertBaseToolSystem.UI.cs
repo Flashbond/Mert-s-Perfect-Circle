@@ -34,11 +34,6 @@ namespace MertsToolBox
                 OnToolActivated();
                 PrimeAndShowPreviewOnEnable();
             }
-            else
-            {
-                OnToolDeactivated();
-                ExecuteGracefulExit(ToolExitMode.UserSelectionClose);
-            }
         }
       
         /// <summary>

@@ -60,6 +60,9 @@ namespace MertsToolBox.Settings
                 { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.RedoToolParameterKey)), "Redo Parameter Change" },
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.RedoToolParameterKey)), "Restores the previously undone parameter adjustment." },
 
+                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.SuppressCrosswalks)), "Remove Crosswalks (Zebra Crossing for British :)" },
+                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.SuppressCrosswalks)), "Sets crosswalks (zebra crossings) removal as the default behavior on shape placement." },
+
                 // -------------------------
                 // Shape
                 // -------------------------
@@ -113,9 +116,6 @@ namespace MertsToolBox.Settings
 
                 { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.DefaultRows)), "Rows" },
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.DefaultRows)), "Sets the default number of rows used by the Grid tool." },
-
-                { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.EnableGridSnap)), "Enable Grid Snap" },
-                { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.EnableGridSnap)), "Enables snap functionality for Grid tool." },
             };
         }
 

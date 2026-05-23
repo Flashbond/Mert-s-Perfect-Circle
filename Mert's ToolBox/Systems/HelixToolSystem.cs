@@ -40,6 +40,16 @@ namespace MertsToolBox.Systems
         public override string ToolId => "Helix";
         public override string ToolName => "Procedural Helix";
 
+        /// <summary>
+        /// Helix permissions.
+        /// </summary>
+        protected override bool AllowOverlapPlacement => true;
+        /// <summary>
+        /// Indicates whether this tool requires snap enforcement.
+        /// </summary>
+        protected override bool RequiresSnapEnforcement => false;
+        #endregion
+
         #region Preset System
         public override MertToolPreset CreatePresetSnapshot()
         {
@@ -57,7 +67,8 @@ namespace MertsToolBox.Systems
                 PrefabName = prefabName,
 
                 DisplayName = SanitizeFileName(
-                    $"{ToolId}_{prefabName}_Diameter{diameter}m_Turn{turns:0.0}_Clearance{clearance:0.0}m_{(m_IsClockwise ? "CW" : "CCW")}"
+                    $"{ToolId}_{prefabName}_Diameter{diameter}m_Turn{turns:0.0}_Clearance{clearance:0.0}m_{(m_IsClockwise ? "CW" : "CCW")}" +
+                    $"{(MertToolState.SuppressCrosswalks ? "_NoCrosswalks" : "")}"
                 ),
 
                 Values = new Dictionary<string, float>
@@ -65,7 +76,8 @@ namespace MertsToolBox.Systems
                     ["Diameter"] = diameter,
                     ["Turns"] = turns,
                     ["Clearance"] = clearance,
-                    ["Clockwise"] = m_IsClockwise ? 1f : 0f
+                    ["Clockwise"] = m_IsClockwise ? 1f : 0f,
+                    ["NoCrosswalks"] = MertToolState.SuppressCrosswalks ? 1f : 0f
                 }
             };
         }
@@ -87,22 +99,11 @@ namespace MertsToolBox.Systems
             if (preset.Values.TryGetValue("Clockwise", out float clockwise))
                 m_IsClockwise = clockwise > 0.5f;
 
+            if (preset.Values.TryGetValue("NoCrosswalks", out float noCrosswalks))
+                MertToolState.SuppressCrosswalks = noCrosswalks >= 0.5f;
+
             QueuePreviewRebuild();
         }
-        #endregion
-        /// <summary>
-        /// Helix permissions.
-        /// </summary>
-        protected override bool AllowOverlapPlacement => true;
-        /// <summary>
-        /// Indicates whether this tool requires snap enforcement.
-        /// </summary>
-        protected override bool RequiresSnapEnforcement => false;
-        /// <summary>
-        /// Indicates whether this tool requires elevation enforcement.
-        /// </summary>
-        protected override bool HandlesOwnElevationInput => true;
-
         #endregion
 
         #region Input Queuing & State
@@ -223,10 +224,7 @@ namespace MertsToolBox.Systems
         /// </summary>
         private int GetMinimumAllowedDiameter()
         {
-            float minDiameter = IsCurrentPierLikePrefab()
-                ? m_CurrentRoadWidth * 3.0f
-                : GetMinHelixDiameterByPillarClearance(m_CurrentRoadWidth);
-
+            float minDiameter = m_CurrentRoadWidth * 3.0f;
             return (int)math.ceil(minDiameter);
         }
         private float GetMinimumAllowedClearance()
@@ -236,10 +234,6 @@ namespace MertsToolBox.Systems
         private float GetMaximumAllowedClearance()
         {
             return IsCurrentPierLikePrefab() ? 5.0f : 15.0f;
-        }
-        private float GetMinHelixDiameterByPillarClearance(float roadWidth)
-        {
-            return (2f * math.PI * roadWidth) + 7f;
         }
         #endregion
 
@@ -441,8 +435,8 @@ namespace MertsToolBox.Systems
             bool isPier = IsCurrentPierLikePrefab();
             MertToolState.ActiveHelixUsesPierLikePrefab = isPier;
 
-            float entryTailLength = isPier ? 1.5f : 1.0f;
-            float exitTailLength = isPier ? 0.5f : 1.0f;
+            float entryTailLength = isPier ? 1.5f : 0.8f;
+            float exitTailLength = isPier ? 0.5f : 0.8f;
 
             subNets = BuildHelixSubNets(roadPrefab, buildRadius, segments, baseElevation, m_CurrentSessionClearance, turns, entryTailLength, exitTailLength);
 

@@ -27,9 +27,12 @@ namespace MertsToolBox.Management
         public static bool SuppressToolChangedDuringColdstart { get; set; }
         public static bool SuppressToolbarCaptureDuringColdstart { get; set; }
         public static bool HasReleasedStaleObjectToolThisFrame { get; set; }
-        public static bool HelixCleanupRequested { get; set; } = false;
 
+        #region System States
+        public static bool HelixCleanupRequested { get; set; } = false;
         public static bool ActiveHelixUsesPierLikePrefab;
+        public static bool SuppressCrosswalks { get; set; }
+        #endregion
         public static void CaptureLaunchContext(
             NetPrefab road,
             Entity category)

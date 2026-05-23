@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using Unity.Entities;
 using UnityEngine.Scripting;
 
@@ -314,61 +313,31 @@ namespace MertsToolBox
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "GridIsOneWaySupported",
                 () => m_Grid?.IsCurrentPrefabValidForOneWayPattern() ?? false));
 
-            // Elevation Bindings
-            AddUpdateBinding(new MertPolledBinding<float>(ModId, "ElevationStepValue", () =>
-            {
-                if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.GetElevationStepValue();
-                if (m_Helix != null && m_Helix.ToolEnabled) return m_Helix.GetElevationStepValue();
-                if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.GetElevationStepValue();
-                if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.GetElevationStepValue();
+            // Crosswalk Bindings
+            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "SuppressCrosswalks",
+            () => MertToolState.SuppressCrosswalks, false));
 
-                return 10f;
-            }));
+            // Elevation Bindings
+            AddUpdateBinding(new MertPolledBinding<float>(ModId, "ElevationStepValue",
+                () => GetEnabledMertTool()?.GetElevationStepValue() ?? 10f));
             AddBinding(new ValueBinding<float[]>(
                 ModId,
                 "ElevationStepArray",
                 GetCurrentElevationSteps(),
                 new ArrayWriter<float>()
             ));
-            AddUpdateBinding(new MertPolledBinding<float>(ModId, "ElevationValue", () =>
-            {
-                if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.GetCurrentNetToolElevation();
-                if (m_Helix != null && m_Helix.ToolEnabled) return m_Helix.GetCurrentNetToolElevation();
-                if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.GetCurrentNetToolElevation();
-                if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.GetCurrentNetToolElevation();
-
-                return 0f;
-            }));
+            AddUpdateBinding(new MertPolledBinding<float>(ModId, "ElevationValue",
+                () => GetEnabledMertTool()?.GetCurrentNetToolElevation() ?? 0f));
 
             // Shared Snap & Toggle Bindings
-            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "ShowSnapRow", () =>
-            {
-                if (m_Grid != null && m_Grid.ToolEnabled)
-                    return Mod.settings != null && Mod.settings.EnableGridSnap;
-                return true;
-            }));
+            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapGeometryActive",
+                () => GetEnabledMertTool()?.IsSnapGeometryEnabled() ?? false));
 
-            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapGeometryActive", () =>
-            {
-                if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.IsSnapGeometryEnabled();
-                if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.IsSnapGeometryEnabled();
-                if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.IsSnapGeometryEnabled();
-                return false;
-            }));
-            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapNetSideActive", () =>
-            {
-                if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.IsSnapNetSideEnabled();
-                if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.IsSnapNetSideEnabled();
-                if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.IsSnapNetSideEnabled();
-                return false;
-            }));
-            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapNetAreaActive", () =>
-            {
-                if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.IsSnapNetAreaEnabled();
-                if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.IsSnapNetAreaEnabled();
-                if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.IsSnapNetAreaEnabled();
-                return false;
-            }));
+            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapNetSideActive",
+                () => GetEnabledMertTool()?.IsSnapNetSideEnabled() ?? false));
+
+            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapNetAreaActive",
+                () => GetEnabledMertTool()?.IsSnapNetAreaEnabled() ?? false));
 
             // Action Hints
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "ShowShapeCtrlWheelHint",
@@ -377,26 +346,11 @@ namespace MertsToolBox
                 () => Mod.settings != null && Mod.settings.UseCtrlWheelForHelixTurnAdjustment));
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "ShowSoftBlockCtrlWheelHint",
                 () => Mod.settings != null && Mod.settings.UseCtrlWheelForSoftBlockBorderRadius));
+
             AddUpdateBinding(new MertPolledBinding<string>(ModId, "ActionStatusText",
                 () => GetActionStatusText(), ""));
 
-            AddUpdateBinding(new MertPolledBinding<string>(ModId, "PresetList", () =>
-            {
-                MertBaseToolSystem tool = GetActiveCustomTool();
-                if (tool == null)
-                    return "";
-
-                NetPrefab prefab = tool.GetCurrentSelectedNetPrefabForUi();
-                if (prefab == null)
-                    return "";
-
-                List<MertToolPreset> presets =
-                    MertToolPresetStorage.LoadPresets(tool.ToolId, prefab.name);
-
-                return string.Join(";", presets.Select(p => p.DisplayName));
-            }, ""));
-
-            // Preset Bindings
+            // Preset Bindings          
             m_PresetListBinding = new MertMutableBinding<string>(ModId, "PresetList", "");
             AddBinding(m_PresetListBinding);
 
@@ -416,29 +370,25 @@ namespace MertsToolBox
                     m_Grid.SetToolState(true);
             }));
 
-            AddBinding(new TriggerBinding<float>(ModId, "ElevationStep", (val) =>
-            {
-                if (m_Shape != null && m_Shape.ToolEnabled) m_Shape.SetElevationStepFromUi(val);
-                else if (m_Helix != null && m_Helix.ToolEnabled) m_Helix.SetElevationStepFromUi(val);
-                else if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) m_SoftBlock.SetElevationStepFromUi(val);
-                else if (m_Grid != null && m_Grid.ToolEnabled) m_Grid.SetElevationStepFromUi(val);
-            }));
+            AddBinding(new TriggerBinding<float>(ModId, "ElevationStep",
+                val => GetEnabledMertTool()?.SetElevationStepFromUi(val)));
 
-            AddBinding(new TriggerBinding(ModId, "ElevationUp", () =>
-            {
-                if (m_Shape != null && m_Shape.ToolEnabled) m_Shape.QueueElevationChangeFromUi(+1);
-                else if (m_Helix != null && m_Helix.ToolEnabled) m_Helix.QueueElevationChangeFromUi(+1);
-                else if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) m_SoftBlock.QueueElevationChangeFromUi(+1);
-                else if (m_Grid != null && m_Grid.ToolEnabled) m_Grid.QueueElevationChangeFromUi(+1);
-            }));
+            AddBinding(new TriggerBinding(ModId, "ElevationUp",
+                () => GetEnabledMertTool()?.QueueElevationChangeFromUi(+1)));
 
-            AddBinding(new TriggerBinding(ModId, "ElevationDown", () =>
-            {
-                if (m_Shape != null && m_Shape.ToolEnabled) m_Shape.QueueElevationChangeFromUi(-1);
-                else if (m_Helix != null && m_Helix.ToolEnabled) m_Helix.QueueElevationChangeFromUi(-1);
-                else if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) m_SoftBlock.QueueElevationChangeFromUi(-1);
-                else if (m_Grid != null && m_Grid.ToolEnabled) m_Grid.QueueElevationChangeFromUi(-1);
-            }));
+            AddBinding(new TriggerBinding(ModId, "ElevationDown",
+                () => GetEnabledMertTool()?.QueueElevationChangeFromUi(-1)));
+
+            // Snap Trigger
+            AddBinding(new TriggerBinding<string>(ModId,"ToggleSnap",
+                snapType => GetEnabledMertTool()?.QueueSnapToggle(snapType)));
+
+            // Crosswalk Trigger
+            AddBinding(new TriggerBinding(ModId, "ToggleSuppressCrosswalks", () =>
+                {
+                    MertToolState.SuppressCrosswalks = !MertToolState.SuppressCrosswalks;
+                    GetEnabledMertTool()?.QueuePreviewRebuild();
+                }));
 
             // Shape Triggers
             AddBinding(new TriggerBinding(ModId, "ShapeDimensionUp", () => m_Shape?.QueueDimensionChange(+1)));
@@ -446,7 +396,6 @@ namespace MertsToolBox
             AddBinding(new TriggerBinding<int>(ModId, "ShapeDimensionStep", (val) => m_Shape?.QueueSetDimensionStep(val)));
             AddBinding(new TriggerBinding(ModId, "ShapeSidesUp", () => m_Shape?.QueueSidesChange(+1)));
             AddBinding(new TriggerBinding(ModId, "ShapeSidesDown", () => m_Shape?.QueueSidesChange(-1)));
-            AddBinding(new TriggerBinding<string>(ModId, "ToggleShapeSnap", (snapType) => m_Shape?.QueueSnapToggle(snapType)));
 
             // Helix Triggers
             AddBinding(new TriggerBinding(ModId, "HelixDiameterUp", () => m_Helix?.QueueDiameterChange(+1)));
@@ -470,7 +419,6 @@ namespace MertsToolBox
             AddBinding(new TriggerBinding<float>(ModId, "SetBorderRadius", (value) => m_SoftBlock?.SetBorderRadiusFromUi(value)));
             AddBinding(new TriggerBinding(ModId, "BeginBorderRadiusDrag", () => m_SoftBlock?.BeginBorderRadiusDrag()));
             AddBinding(new TriggerBinding(ModId, "EndBorderRadiusDrag", () => m_SoftBlock?.EndBorderRadiusDrag()));
-            AddBinding(new TriggerBinding<string>(ModId, "SoftBlockToggleSnap", (snapType) => m_SoftBlock?.QueueSnapToggle(snapType)));
             AddBinding(new TriggerBinding(ModId, "SoftBlockToggleStraightCorners", () => m_SoftBlock?.QueueToggleStraightCorners()));
 
             // Grid Triggers
@@ -483,8 +431,6 @@ namespace MertsToolBox
             AddBinding(new TriggerBinding(ModId, "GridRowsUp", () => m_Grid?.QueueRowsChange(+1)));
             AddBinding(new TriggerBinding(ModId, "GridRowsDown", () => m_Grid?.QueueRowsChange(-1)));
             AddBinding(new TriggerBinding(ModId, "GridToggleAlternating", () => m_Grid?.QueueToggleAlternating()));
-            AddBinding(new TriggerBinding(ModId, "GridToggleOrientation", () => m_Grid?.QueueToggleOrientation()));
-            AddBinding(new TriggerBinding<string>(ModId, "GridToggleSnap", (snapType) => m_Grid?.QueueSnapToggle(snapType)));
 
             // Preset Triggers
             AddBinding(new CallBinding<string, bool>(ModId, "SavePreset", (toolId) =>
@@ -552,6 +498,7 @@ namespace MertsToolBox
         private float[] GetCurrentElevationSteps()
         {
             if (m_Shape != null && m_Shape.ToolEnabled) return m_Shape.GetElevationStepArray();
+            if (m_Helix != null && m_Helix.ToolEnabled) return m_Helix.GetElevationStepArray();
             if (m_SoftBlock != null && m_SoftBlock.ToolEnabled) return m_SoftBlock.GetElevationStepArray();
             if (m_Grid != null && m_Grid.ToolEnabled) return m_Grid.GetElevationStepArray();
 
@@ -622,36 +569,6 @@ namespace MertsToolBox
         #endregion
 
         #region External Selection Normalization
-        /// <summary>
-        /// Determines whether an asset is currently selected through the standard vanilla toolbar UI.
-        /// </summary>
-        private bool HasVanillaSelectedAsset()
-        {
-            try
-            {
-                var toolbarSystem = World.GetExistingSystemManaged<Game.UI.InGame.ToolbarUISystem>();
-                if (toolbarSystem == null)
-                    return false;
-
-                var bindingField = typeof(Game.UI.InGame.ToolbarUISystem)
-                    .GetField("m_SelectedAssetBinding", BindingFlags.Instance | BindingFlags.NonPublic);
-
-                if (bindingField?.GetValue(toolbarSystem) is not object bindingObj)
-                    return false;
-
-                var valueProperty = bindingObj.GetType().GetProperty("value");
-                if (valueProperty == null)
-                    return false;
-
-                Entity selectedAssetEntity = (Entity)valueProperty.GetValue(bindingObj);
-                return selectedAssetEntity != Entity.Null;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
         /// <summary>
         /// Checks whether the specified tool system corresponds to the external Road Builder mod.
         /// </summary>
@@ -785,6 +702,15 @@ namespace MertsToolBox
             m_LastToolListPipe = next;
             return next;
         }
+        private MertBaseToolSystem GetEnabledMertTool()
+        {
+            if (m_Shape?.ToolEnabled == true) return m_Shape;
+            if (m_Helix?.ToolEnabled == true) return m_Helix;
+            if (m_SoftBlock?.ToolEnabled == true) return m_SoftBlock;
+            if (m_Grid?.ToolEnabled == true) return m_Grid;
+
+            return null;
+        }
         private bool GetIsToolBoxAllowed()
         {
             NetPrefab currentPrefab =
@@ -874,7 +800,6 @@ namespace MertsToolBox
         #endregion
 
         #region Preset System
-        
         private void RefreshPresetListBinding()
         {
             MertBaseToolSystem tool = GetActiveCustomTool();
@@ -891,11 +816,20 @@ namespace MertsToolBox
                 return;
             }
 
-            List<MertToolPreset> presets =
-                MertToolPresetStorage.LoadPresets(tool.ToolId, prefab.name);
+            List<MertToolPreset> presets = MertToolPresetStorage.LoadPresets(tool.ToolId, prefab.name);
 
-            string value = string.Join(";", presets.Select(p => p.DisplayName));
-            m_PresetListBinding?.SetValue(value);
+            string value = string.Join(";", presets.Select(p =>
+                $"{ToPresetDisplayLabel(p.DisplayName)}|{p.DisplayName}"));
+
+           m_PresetListBinding?.SetValue(value);
+        }
+
+        private static string ToPresetDisplayLabel(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "";
+
+            return value.Replace("_", " ");
         }
         #endregion
 

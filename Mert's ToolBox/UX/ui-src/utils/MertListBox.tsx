@@ -144,7 +144,13 @@ export const MertListBox: React.FC<MertListBoxProps> = ({
         }
     };
     const handleItemLeave = () => setTooltipData(null);
-    
+
+    useEffect(() => {
+        if (!isOpen) {
+            setTooltipData(null);
+        }
+    }, [isOpen]);
+
     return (
         <>
             {/* PRESET ROW */}
@@ -179,7 +185,7 @@ export const MertListBox: React.FC<MertListBoxProps> = ({
                     <Scrollable vertical={true} className={styles.customScroll}>
                         <ul className={styles.list}>
                             {items.length === 0 ? (
-                                <li className={styles.empty}> <div>Empty List...</div> </li>
+                                <li className={styles.empty}>Empty List...</li>
                             ) : (
                                 items.map((item, index) => (
                                     <li
@@ -193,6 +199,7 @@ export const MertListBox: React.FC<MertListBoxProps> = ({
                                             if (e.button === 2) {
                                                 e.preventDefault();
                                                 e.stopPropagation();
+                                                setTooltipData(null);
                                                 onDelete?.(item);
                                             }
                                         }}

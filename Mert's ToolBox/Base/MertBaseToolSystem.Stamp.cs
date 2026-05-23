@@ -22,6 +22,8 @@ namespace MertsToolBox
         private static bool s_ObjectToolFoundationWarmFailed;
         private static int s_ObjectToolWarmAttempts;
         private const int MaxObjectToolWarmAttempts = 3;
+
+        private readonly Dictionary<Entity, Game.Prefabs.RoadFlags> m_OriginalRoadFlags = new();
         #endregion
 
 
@@ -586,20 +588,37 @@ namespace MertsToolBox
                 changed = true;
             }
 
-            if (EntityManager.HasBuffer<Game.Prefabs.SubNet>(targetEntity))
+            if (EntityManager.HasBuffer<SubNet>(targetEntity))
             {
                 bool2 dynamicSubNetSnapping = new(isAnySnapActive, isAnySnapActive);
-                DynamicBuffer<Game.Prefabs.SubNet> subNets = EntityManager.GetBuffer<Game.Prefabs.SubNet>(targetEntity);
+
+                DynamicBuffer<SubNet> subNets =
+                    EntityManager.GetBuffer<SubNet>(targetEntity);
+
+                CompositionFlags suppressionFlags =
+                    BuildCommonSuppressionFlags();
 
                 for (int i = 0; i < subNets.Length; i++)
                 {
-                    Game.Prefabs.SubNet subNet = subNets[i];
-                    if (subNet.m_Snapping.x != dynamicSubNetSnapping.x || subNet.m_Snapping.y != dynamicSubNetSnapping.y)
+                    SubNet subNet = subNets[i];
+
+                    if (subNet.m_Snapping.x != dynamicSubNetSnapping.x ||
+                        subNet.m_Snapping.y != dynamicSubNetSnapping.y)
                     {
                         subNet.m_Snapping = dynamicSubNetSnapping;
-                        subNets[i] = subNet;
                         changed = true;
                     }
+
+                    if (suppressionFlags != default)
+                    {
+                        subNet.m_Upgrades.m_General |= suppressionFlags.m_General;
+                        subNet.m_Upgrades.m_Left |= suppressionFlags.m_Left;
+                        subNet.m_Upgrades.m_Right |= suppressionFlags.m_Right;
+
+                        changed = true;
+                    }
+
+                    subNets[i] = subNet;
                 }
             }
             return changed;
@@ -643,7 +662,7 @@ namespace MertsToolBox
                 return false;
 
             Entity refreshedEntity = RefreshRuntimeStampEntity(m_RuntimeStamp);
-
+            
             if (refreshedEntity != Entity.Null && EntityManager.Exists(refreshedEntity))
             {
                 RuntimeStampEntity = refreshedEntity;

@@ -2,6 +2,7 @@ using Colossal.Entities;
 using Colossal.Mathematics;
 using Game.Prefabs;
 using MertsToolBox.Core;
+using MertsToolBox.Management;
 using MertsToolBox.Utilities.Preset;
 using System.Collections.Generic;
 using Unity.Mathematics;
@@ -36,8 +37,7 @@ namespace MertsToolBox
         /// <summary>
         /// Indicates whether this tool requires snap enforcement.
         /// </summary>
-        protected override bool RequiresSnapEnforcement => Mod.settings?.EnableGridSnap ?? false;
-        protected override bool HandlesOwnElevationInput => true;
+        protected override bool RequiresSnapEnforcement => true;
         #endregion
 
         #region Preset System
@@ -59,7 +59,8 @@ namespace MertsToolBox
                 DisplayName = SanitizeFileName(
                     $"{ToolId}_{prefabName}_Block{blockWidth}x{blockLength}U_Grid{columns}x{rows}" +
                     $"{(m_IsAlternating ? "_Alternating" : "")}" +
-                    $"{(m_IsOrientationLeftBottom ? "_Bottom-Left" : "_Bottom-Right")}"
+                    $"{(m_IsOrientationLeftBottom ? "_Bottom-Left" : "_Bottom-Right")}" +
+                    $"{(MertToolState.SuppressCrosswalks ? "_NoCrosswalks" : "")}"
                 ),
                 Values = new Dictionary<string, float>
                 {
@@ -68,7 +69,8 @@ namespace MertsToolBox
                     ["Columns"] = columns,
                     ["Rows"] = rows,
                     ["Alternating"] = m_IsAlternating ? 1f : 0f,
-                    ["OrientationLeftBottom"] = m_IsOrientationLeftBottom ? 1f : 0f
+                    ["OrientationLeftBottom"] = m_IsOrientationLeftBottom ? 1f : 0f,
+                    ["NoCrosswalks"] = MertToolState.SuppressCrosswalks ? 1f : 0f
                 }
             };
         }
@@ -95,6 +97,9 @@ namespace MertsToolBox
 
             if (preset.Values.TryGetValue("OrientationLeftBottom", out float orientation))
                 m_IsOrientationLeftBottom = orientation >= 0.5f;
+
+            if (preset.Values.TryGetValue("NoCrosswalks", out float noCrosswalks))
+                MertToolState.SuppressCrosswalks = noCrosswalks >= 0.5f;
 
             QueuePreviewRebuild();
         }
@@ -460,15 +465,26 @@ namespace MertsToolBox
         /// <summary>
         /// Creates a straight sub-network segment between two points with proper node indexing.
         /// </summary>
-        private ObjectSubNetInfo CreateStraightSegment(NetPrefab prefab, float3 start, float3 end, int startNode, int endNode)
+        private ObjectSubNetInfo CreateStraightSegment(
+    NetPrefab prefab,
+    float3 start,
+    float3 end,
+    int startNode,
+    int endNode)
         {
             float3 dir = end - start;
+
             return new ObjectSubNetInfo
             {
                 m_NetPrefab = prefab,
-                m_BezierCurve = new Bezier4x3(start, start + (dir * (1f / 3f)), end - (dir * (1f / 3f)), end),
+                m_BezierCurve = new Bezier4x3(
+                    start,
+                    start + dir * (1f / 3f),
+                    end - dir * (1f / 3f),
+                    end),
+
                 m_NodeIndex = new int2(startNode, endNode),
-                m_ParentMesh = new int2(-1, -1)
+                m_ParentMesh = new int2(-1, -1),
             };
         }
         #endregion

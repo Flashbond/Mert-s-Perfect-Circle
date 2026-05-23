@@ -1,6 +1,7 @@
 using Colossal.Mathematics;
 using Game.Prefabs;
 using MertsToolBox.Core;
+using MertsToolBox.Management;
 using MertsToolBox.Utilities.Preset;
 using System.Collections.Generic;
 using Unity.Mathematics;
@@ -56,7 +57,6 @@ namespace MertsToolBox.Systems
         /// Indicates whether this tool requires snap enforcement.
         /// </summary>
         protected override bool RequiresSnapEnforcement => true;
-        protected override bool HandlesOwnElevationInput => true;
         #endregion
 
         #region Preset System
@@ -78,7 +78,8 @@ namespace MertsToolBox.Systems
 
                 DisplayName = SanitizeFileName(
                     $"{ToolId}_{prefabName}_Dimensions{width}x{length}m_Radius{radius:0.0}"+
-                    $"{(m_UseStraightCorners ? "_StraightCorners" : "")}"
+                    $"{(m_UseStraightCorners ? "_StraightCorners" : "")}"+
+                    $"{(MertToolState.SuppressCrosswalks ? "_NoCrosswalks" : "")}"
                 ),
 
                 Values = new Dictionary<string, float>
@@ -86,7 +87,8 @@ namespace MertsToolBox.Systems
                     ["Width"] = width,
                     ["Length"] = length,
                     ["BorderRadius"] = radius,
-                    ["StraightCorners"] = m_UseStraightCorners ? 1f : 0f
+                    ["StraightCorners"] = m_UseStraightCorners ? 1f : 0f,
+                    ["NoCrosswalks"] = MertToolState.SuppressCrosswalks ? 1f : 0f
                 }
             };
         }
@@ -107,6 +109,9 @@ namespace MertsToolBox.Systems
 
             if (preset.Values.TryGetValue("StraightCorners", out float corners))
                 m_UseStraightCorners = corners >= 0.5f;
+
+            if (preset.Values.TryGetValue("NoCrosswalks", out float noCrosswalks))
+                MertToolState.SuppressCrosswalks = noCrosswalks >= 0.5f;
 
             QueuePreviewRebuild();
         }

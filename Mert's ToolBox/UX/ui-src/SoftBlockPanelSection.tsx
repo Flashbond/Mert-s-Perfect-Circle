@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { trigger, call, bindValue, useValue } from "cs2/api";
+import StraightIcon from "./Icons/StraightCorner.svg";
+import crossWalkIcon from "./Icons/CrossWalk.svg";
 import { MertSlider } from "./utils/MertSlider";
 import { formatMeters } from "./utils/Formatters";
 import { VanillaResolver } from "./utils/VanilliaResolver";
 import { parseActiveTool } from "./utils/ActiveTool";
 import { MertListBox } from './utils/MertListBox';
-import StraightIcon from "./Icons/StraightCorner.svg";
 
 // --- GLOBAL BINDINGS (C# TO UI) ---
 const activeToolMode$ = bindValue<string>("MertsToolBox", "ActiveTool", "None|None");
@@ -23,6 +24,8 @@ const borderRadius$ = bindValue<number>("MertsToolBox", "GetBorderRadius");
 
 const softBlockStraightCorners$ = bindValue<boolean>("MertsToolBox", "SoftBlockStraightCorners", false);
 const softBlockStraightCornersSupported$ = bindValue<boolean>("MertsToolBox", "SoftBlockStraightCornersSupported", true);
+
+const suppressCrosswalks$ = bindValue<boolean>("MertsToolBox", "SuppressCrosswalks", false);
 
 const elevationValue$ = bindValue<number>("MertsToolBox", "ElevationValue");
 const elevationStepValue$ = bindValue<number>("MertsToolBox", "ElevationStepValue");
@@ -78,6 +81,8 @@ export const SoftBlockPanelSection = () => {
     const straightCorners = useValue(softBlockStraightCorners$) as boolean;
     const straightCornersSupported = useValue(softBlockStraightCornersSupported$) as boolean;
 
+    const suppressCrosswalks = useValue(suppressCrosswalks$) as boolean;
+
     const elevationValue = useValue(elevationValue$) as number;
     const elevationStepValue = useValue(elevationStepValue$) as number;
     const elevationStepValues = useValue(elevationStepArray$) as number[];
@@ -88,10 +93,23 @@ export const SoftBlockPanelSection = () => {
 
     const presetListRaw = useValue(presetList$) as string;
 
-    const presetList = (presetListRaw || "")
+    type PresetListItem = {
+        label: string;
+        value: string;
+    };
+
+    const presetList: PresetListItem[] = (presetListRaw || "")
         .split(";")
         .map((item) => item.trim())
-        .filter((item) => item.length > 0);
+        .filter((item) => item.length > 0)
+        .map((item) => {
+            const [label, value] = item.split("|");
+
+            return {
+                label: label?.trim() ?? item,
+                value: value?.trim() ?? label?.trim() ?? item,
+            };
+        });
 
     // --- RENDER ---
     if (!delayedShow) return null;
@@ -196,6 +214,15 @@ export const SoftBlockPanelSection = () => {
                 />
             </VanillaResolver.instance.Section>
 
+            <VanillaResolver.instance.Section title="Crosswalks">
+                <VanillaResolver.instance.ToolButton
+                    src={crossWalkIcon}
+                    selected={suppressCrosswalks}
+                    tooltip={suppressCrosswalks ? "Removed" : "Allowed"}
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    onSelect={() => trigger("MertsToolBox", "ToggleSuppressCrosswalks")}
+                />
+            </VanillaResolver.instance.Section>
 
             {/* ELEVATION ROW */}
             <VanillaResolver.instance.Section title="Elevation">
@@ -220,9 +247,7 @@ export const SoftBlockPanelSection = () => {
                     tooltip={`${elevationStepValue}`}
                     values={elevationStepValues}
                     selectedValue={elevationStepValue}
-                    onSelect={(val) => {
-                        trigger("MertsToolBox", "ElevationStep", val);
-                    }}
+                    onSelect={(val) => trigger("MertsToolBox", "ElevationStep", val)}
                 />
             </VanillaResolver.instance.Section>
 
@@ -255,7 +280,7 @@ export const SoftBlockPanelSection = () => {
 
             {/* MERT LISTBOX (KLASİK) */}
             <MertListBox
-                items={presetList}
+                items={presetList.map(p => p.label)}
                 isOpen={presetPanelOpen}
                 onToggleOpen={() => {
                     setPresetPanelOpen(!presetPanelOpen);
@@ -268,12 +293,18 @@ export const SoftBlockPanelSection = () => {
                     }
                     return success;
                 }}
-                onSelect={(presetName) => {
-                    trigger("MertsToolBox", "LoadPreset", presetName);
+                onSelect={(presetLabel) => {
+                    const preset = presetList.find(p => p.label === presetLabel);
+                    if (!preset) return;
+
+                    trigger("MertsToolBox", "LoadPreset", preset.value);
                     setPresetPanelOpen(false);
                 }}
-                onDelete={(presetName) => {
-                    trigger("MertsToolBox", "DeletePreset", presetName);
+                onDelete={(presetLabel) => {
+                    const preset = presetList.find(p => p.label === presetLabel);
+                    if (!preset) return;
+
+                    trigger("MertsToolBox", "DeletePreset", preset.value);
                 }}
             />
         </div>

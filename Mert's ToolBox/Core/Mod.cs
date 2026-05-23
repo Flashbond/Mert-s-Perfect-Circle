@@ -42,7 +42,7 @@ namespace MertsToolBox.Core
             updateSystem.UpdateAt<GridToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<MertToolBoxUISystem>(SystemUpdatePhase.UIUpdate);
             
-            ModRuntime.Log("ToolBox loaded.");
+            ModRuntime.Log("ToolBox loaded.");         
         }
 
         /// <summary>

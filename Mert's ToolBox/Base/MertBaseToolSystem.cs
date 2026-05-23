@@ -54,6 +54,7 @@ namespace MertsToolBox
         /// Indicates whether this tool overrides global snap settings.
         /// </summary>
         protected virtual bool RequiresSnapEnforcement => false;
+        protected virtual bool SuppressCrosswalks => MertToolState.SuppressCrosswalks;
 
         protected bool m_PendingCreateShape;
         private bool m_IsCreatingShape;
@@ -126,9 +127,11 @@ namespace MertsToolBox
             m_PrefabField = typeof(NetToolSystem).GetField("m_Prefab", BindingFlags.Instance | BindingFlags.NonPublic);
             if (Mod.settings != null)
             {
-                Mod.settings.OnSnapOptionsChanged += OnSnapSettingsChanged;
                 Mod.settings.OnToolParametersChanged += RetrieveParametersFromSettings;
+                Mod.settings.OnSuppressCrosswalkChanged += OnSuppressCrosswalkSettingsChanged;
             }
+
+            OnSuppressCrosswalkSettingsChanged();
         }
 
         /// <summary>
@@ -155,6 +158,16 @@ namespace MertsToolBox
                 HandleExecuteCreateShape();
         }
 
+        protected void OnSuppressCrosswalkSettingsChanged()
+        {
+            MertToolState.SuppressCrosswalks = Mod.settings?.SuppressCrosswalks ?? false;
+
+            if (!ToolEnabled)
+                return;
+
+            QueuePreviewRebuild();
+        }
+
         private void KeepVanillaElevationDisabled()
         {
             try
@@ -172,8 +185,8 @@ namespace MertsToolBox
         {
             if (Mod.settings != null)
             {
-                Mod.settings.OnSnapOptionsChanged -= OnSnapSettingsChanged;
                 Mod.settings.OnToolParametersChanged -= RetrieveParametersFromSettings;
+                Mod.settings.OnSuppressCrosswalkChanged -= OnSuppressCrosswalkSettingsChanged;
             }
 
             foreach (var kv in s_StampByRoadEntity)
@@ -213,17 +226,6 @@ namespace MertsToolBox
             base.OnDestroy();
         }
 
-        /// <summary>
-        /// Handles dynamic updates to the tool state when user settings are modified.
-        /// </summary>
-        protected void OnSnapSettingsChanged()
-        {
-            if (!ToolEnabled)
-                return;
- 
-            ApplySnapMaskToActiveTool();
-            QueuePreviewRebuild();
-        }
         protected virtual void RetrieveParametersFromSettings(int toolIndex, int paramIndex) { }
         #endregion
 
@@ -276,6 +278,18 @@ namespace MertsToolBox
 
             return true;
         }
+        protected CompositionFlags BuildCommonSuppressionFlags()
+        {
+            CompositionFlags flags = default;
+
+            if (SuppressCrosswalks)
+            {
+                flags.m_Left |= CompositionFlags.Side.RemoveCrosswalk;
+                flags.m_Right |= CompositionFlags.Side.RemoveCrosswalk;
+            }
+
+            return flags;
+        }
         #endregion
 
         #region Data & Prefab Retrieval
@@ -306,7 +320,7 @@ namespace MertsToolBox
 
         public void QueueElevationChangeFromUi(int direction)
         {
-            if (!ToolEnabled || !HandlesOwnElevationInput)
+            if (!ToolEnabled)
                 return;
 
             RouteElevationToNetTool(direction);
@@ -464,6 +478,7 @@ namespace MertsToolBox
             return ((currentValue - 1) / stepSize) * stepSize;
         }
         #endregion
+
         #region Preset Sytem
         public virtual MertToolPreset CreatePresetSnapshot()
         {

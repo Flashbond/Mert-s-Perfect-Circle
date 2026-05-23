@@ -72,7 +72,7 @@
 }
 
     .itemText {
-        padding: 6rem 12rem;
+        padding: 6rem 0rem 6rem 12rem;
         width: 100%;
         white-space: nowrap;
         overflow: hidden;
@@ -80,11 +80,10 @@
         font-size: 14rem;
     }
 
-    .empty {
-        padding: 12rem;
-        font-size: 14rem;
-        color: unquote("rgba(255, 255, 255, 0.8)");
-        text-align: center;
-        font-weight: bold;
-        font-style: italic;
-    }
+.empty {
+    padding: 6rem 0rem 6rem 12rem;
+    font-size: 14rem;
+    color: unquote("rgba(255, 255, 255, 0.8)");
+    text-align: center;
+    font-weight: bold;
+}

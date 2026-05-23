@@ -41,6 +41,8 @@ namespace MertsToolBox.Settings
         public const string UndoToolParameter = "UndoToolParameter";
         public const string RedoToolParameter = "RedoToolParameter";
 
+        private bool m_SuppressCrosswalks = false;
+
         private int m_DefaultShapeDimension = 96;
         private bool m_UseCtrlWheelForShapeDimensionAdjustment = false;
 
@@ -58,10 +60,9 @@ namespace MertsToolBox.Settings
         private int m_DefaultBlockLengthU = 6;
         private int m_DefaultColumns = 2;
         private int m_DefaultRows = 2;
-        private bool m_EnableGridSnap = false;
 
-        public event Action OnSnapOptionsChanged;
         public event Action<int, int> OnToolParametersChanged;
+        public event Action OnSuppressCrosswalkChanged;
         public ToolBoxSettings(IMod mod) : base(mod)
         {
             SetDefaults();
@@ -92,6 +93,19 @@ namespace MertsToolBox.Settings
         [SettingsUISection(TAB_GENERAL, GROUP_KEYBINDS)]
         [SettingsUIKeyboardBinding(BindingKeyboard.Y, RedoToolParameter, ctrl: true)]
         public ProxyBinding RedoToolParameterKey { get; set; }
+
+        [SettingsUISection(TAB_GENERAL, GROUP_CONTROLS)]
+        public bool SuppressCrosswalks
+        {
+            get => m_SuppressCrosswalks;
+            set
+            {
+                if (m_SuppressCrosswalks == value) return;
+
+                m_SuppressCrosswalks = value;
+                OnSuppressCrosswalkChanged?.Invoke();
+            }
+        }
 
         // -------------------------
         // Shape
@@ -304,20 +318,11 @@ namespace MertsToolBox.Settings
                 OnToolParametersChanged?.Invoke(4, 4);
             }
         }
-        [SettingsUISection(TAB_GRID, GROUP_CONTROLS)]
-        public bool EnableGridSnap
-        {
-            get => m_EnableGridSnap;
-            set
-            {
-                if (m_EnableGridSnap == value) return;
 
-                m_EnableGridSnap = value;
-                OnSnapOptionsChanged?.Invoke();
-            }
-        }
         public override void SetDefaults()
         {
+            m_SuppressCrosswalks = false;
+
             m_DefaultShapeDimension = 96;
             m_UseCtrlWheelForShapeDimensionAdjustment = false;
 
@@ -335,7 +340,6 @@ namespace MertsToolBox.Settings
             m_DefaultBlockLengthU = 6;
             m_DefaultColumns = 2;
             m_DefaultRows = 2;
-            m_EnableGridSnap = false;
         }
     }
 }

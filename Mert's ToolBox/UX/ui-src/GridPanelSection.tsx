@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { trigger, call, bindValue, useValue } from "cs2/api";
+import crossWalkIcon from "./Icons/CrossWalk.svg";
 import alternatingIcon from "./Icons/Alternating.svg";
 import orientationIcon from "./Icons/Orientation.svg";
 import { formatMeters, formatUnits, formatSmart } from "./utils/Formatters";
@@ -19,11 +20,12 @@ const gridRows$ = bindValue<number>("MertsToolBox", "GridRows");
 const gridAlternating$ = bindValue<boolean>("MertsToolBox", "GridAlternating");
 const gridOrientationLeftBottom$ = bindValue<boolean>("MertsToolBox", "GridOrientationLeftBottom");
 
+const suppressCrosswalks$ = bindValue<boolean>("MertsToolBox", "SuppressCrosswalks", false);
+
 const elevationValue$ = bindValue<number>("MertsToolBox", "ElevationValue");
 const elevationStepValue$ = bindValue<number>("MertsToolBox", "ElevationStepValue");
 const elevationStepArray$ = bindValue<number[]>("MertsToolBox", "ElevationStepArray");
 
-const showSnapRow$ = bindValue<boolean>("MertsToolBox", "ShowSnapRow", true);
 const isSnapGeometryActive$ = bindValue<boolean>("MertsToolBox", "IsSnapGeometryActive");
 const isSnapNetSideActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetSideActive");
 const isSnapNetAreaActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetAreaActive");
@@ -73,12 +75,11 @@ export const GridPanelSection = () => {
     const isOrientationLeftBottom = useValue(gridOrientationLeftBottom$) as boolean;
     const isOneWaySupported = useValue(gridIsOneWaySupported$) as boolean;
 
+    const suppressCrosswalks = useValue(suppressCrosswalks$) as boolean;
+
     const elevationValue = useValue(elevationValue$) as number;
     const elevationStepValue = useValue(elevationStepValue$) as number;
     const elevationStepValues = useValue(elevationStepArray$) as number[];
-
-    const showSnapRowBinding = useValue(showSnapRow$) as boolean;
-    const showSnapRow: boolean = showSnapRowBinding ?? true;
 
     const isSnapGeometryActive = useValue(isSnapGeometryActive$) as boolean;
     const isSnapNetSideActive = useValue(isSnapNetSideActive$) as boolean;
@@ -86,10 +87,23 @@ export const GridPanelSection = () => {
 
     const presetListRaw = useValue(presetList$) as string;
 
-    const presetList = (presetListRaw || "")
+    type PresetListItem = {
+        label: string;
+        value: string;
+    };
+
+    const presetList: PresetListItem[] = (presetListRaw || "")
         .split(";")
         .map((item) => item.trim())
-        .filter((item) => item.length > 0);
+        .filter((item) => item.length > 0)
+        .map((item) => {
+            const [label, value] = item.split("|");
+
+            return {
+                label: label?.trim() ?? item,
+                value: value?.trim() ?? label?.trim() ?? item,
+            };
+        });
 
     // --- RENDER ---
     if (!delayedShow) return null;
@@ -189,18 +203,35 @@ export const GridPanelSection = () => {
                     src={alternatingIcon}
                     selected={isAlternating}
                     disabled={!isOneWaySupported}
-                    tooltip={isOneWaySupported ? "Alternating" : "REQUIRES ONE-WAY ROAD"}
+                    tooltip={
+                        !isOneWaySupported
+                            ? "REQUIRES ONE-WAY ROAD"
+                            : (isAlternating ? "Is Alternating" : "Not Alternating")
+                    }
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
                     onSelect={() => trigger("MertsToolBox", "GridToggleAlternating")}
                 />
-
                 <VanillaResolver.instance.ToolButton
                     src={orientationIcon}
                     selected={isOrientationLeftBottom}
                     disabled={!isOneWaySupported}
-                    tooltip={isOneWaySupported ? "Orientation" : "REQUIRES ONE-WAY ROAD"}
+                    tooltip={
+                        !isOneWaySupported
+                            ? "REQUIRES ONE-WAY ROAD"
+                            : (isOrientationLeftBottom ? "Bottom-Left" : "Bottom-Right")
+                    }
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
                     onSelect={() => trigger("MertsToolBox", "GridToggleOrientation")}
+                />
+            </VanillaResolver.instance.Section>
+
+            <VanillaResolver.instance.Section title="Crosswalks">
+                <VanillaResolver.instance.ToolButton
+                    src={crossWalkIcon}
+                    selected={suppressCrosswalks}
+                    tooltip={suppressCrosswalks ? "Removed" : "Allowed"}
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    onSelect={() => trigger("MertsToolBox", "ToggleSuppressCrosswalks")}
                 />
             </VanillaResolver.instance.Section>
 
@@ -227,14 +258,11 @@ export const GridPanelSection = () => {
                     tooltip={`${elevationStepValue}`}
                     values={elevationStepValues}
                     selectedValue={elevationStepValue}
-                    onSelect={(val) => {
-                        trigger("MertsToolBox", "ElevationStep", val);
-                    }}
+                    onSelect={(val) => trigger("MertsToolBox", "ElevationStep", val)}
                 />
             </VanillaResolver.instance.Section>
 
             {/* SNAP ROW */}
-            {showSnapRow && (
                 <VanillaResolver.instance.Section title="Snap">
                     <VanillaResolver.instance.ToolButton
                         src="Media/Tools/Snap Options/ExistingGeometry.svg"
@@ -260,12 +288,10 @@ export const GridPanelSection = () => {
                         tooltip={`Net Area`}
                     />
                 </VanillaResolver.instance.Section>
-            )}
-
 
             {/* MERT LISTBOX (KLASİK) */}
             <MertListBox
-                items={presetList}
+                items={presetList.map(p => p.label)}
                 isOpen={presetPanelOpen}
                 onToggleOpen={() => {
                     setPresetPanelOpen(!presetPanelOpen);
@@ -278,12 +304,18 @@ export const GridPanelSection = () => {
                     }
                     return success;
                 }}
-                onSelect={(presetName) => {
-                    trigger("MertsToolBox", "LoadPreset", presetName);
+                onSelect={(presetLabel) => {
+                    const preset = presetList.find(p => p.label === presetLabel);
+                    if (!preset) return;
+
+                    trigger("MertsToolBox", "LoadPreset", preset.value);
                     setPresetPanelOpen(false);
                 }}
-                onDelete={(presetName) => {
-                    trigger("MertsToolBox", "DeletePreset", presetName);
+                onDelete={(presetLabel) => {
+                    const preset = presetList.find(p => p.label === presetLabel);
+                    if (!preset) return;
+
+                    trigger("MertsToolBox", "DeletePreset", preset.value);
                 }}
             />
         </div>

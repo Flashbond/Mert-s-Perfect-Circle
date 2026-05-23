@@ -32,8 +32,6 @@ namespace MertsToolBox
         private static FieldInfo s_BindingField;
         private static PropertyInfo s_ValueProperty;
 
-        protected virtual bool HandlesOwnElevationInput => true;
-
         private static readonly float[] s_ElevationStepValues = new float[]
         {
             10f, 5f, 2.5f, 1.25f
@@ -104,7 +102,7 @@ namespace MertsToolBox
         }
         protected virtual void ProcessElevationInput()
         {
-            if (!ToolEnabled || !HandlesOwnElevationInput)
+            if (!ToolEnabled)
                 return;
 
             if (m_ShadowElevationAction == null)
@@ -254,7 +252,7 @@ namespace MertsToolBox
                 if (m_ToolRaycastSystem != null &&
                     m_ToolRaycastSystem.GetRaycastResult(out var result))
                 {
-                    ExecuteGracefulExit(ToolExitMode.RestoreFromPlacement);
+                    RequestDisable(ToolExitMode.RestoreFromPlacement);
                 }
             }
         }
@@ -583,12 +581,12 @@ namespace MertsToolBox
             selectedAssetEntity = Entity.Null;
 
             var toolbarSystem = World.DefaultGameObjectInjectionWorld?
-                .GetExistingSystemManaged<Game.UI.InGame.ToolbarUISystem>();
+                .GetExistingSystemManaged<ToolbarUISystem>();
 
             if (toolbarSystem == null) return false;
 
             if (s_BindingField == null)
-                s_BindingField = typeof(Game.UI.InGame.ToolbarUISystem)
+                s_BindingField = typeof(ToolbarUISystem)
                     .GetField("m_SelectedAssetBinding", BindingFlags.Instance | BindingFlags.NonPublic);
 
             if (s_BindingField?.GetValue(toolbarSystem) is not object bindingObj)

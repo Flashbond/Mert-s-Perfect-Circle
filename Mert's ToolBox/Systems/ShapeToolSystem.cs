@@ -1,6 +1,7 @@
 using Colossal.Mathematics;
 using Game.Prefabs;
 using MertsToolBox.Core;
+using MertsToolBox.Management;
 using MertsToolBox.Utilities.Preset;
 using System.Collections.Generic;
 using Unity.Mathematics;
@@ -39,6 +40,11 @@ namespace MertsToolBox.Systems
         /// </summary>
         public override string ToolId => "Shape";
         public override string ToolName => "Perfect Shape";
+
+        /// <summary>
+        /// Indicates whether this tool requires snap enforcement.
+        /// </summary>
+        protected override bool RequiresSnapEnforcement => true;
         #endregion
 
         #region Preset Management
@@ -58,13 +64,15 @@ namespace MertsToolBox.Systems
                 PrefabName = prefabName,
 
                 DisplayName = SanitizeFileName(
-                    $"{ToolId}_{prefabName}_{shapeName}_Dimension{dimension}m"
+                    $"{ToolId}_{prefabName}_{shapeName}_Dimension{dimension}m" +
+                    $"{(MertToolState.SuppressCrosswalks ? "_NoCrosswalks" : "")}"
                 ),
 
                 Values = new Dictionary<string, float>
                 {
                     ["Dimension"] = dimension,
-                    ["Sides"] = currentSides
+                    ["Sides"] = currentSides,
+                    ["NoCrosswalks"] = MertToolState.SuppressCrosswalks ? 1f : 0f
                 }
             };
         }
@@ -90,15 +98,11 @@ namespace MertsToolBox.Systems
             if (preset.Values.TryGetValue("Sides", out float sides))
                 SetSides((int)sides);
 
+            if (preset.Values.TryGetValue("NoCrosswalks", out float noCrosswalks))
+                MertToolState.SuppressCrosswalks = noCrosswalks >= 0.5f;
+
             QueuePreviewRebuild();
         }
-
-
-        /// <summary>
-        /// Indicates whether this tool requires snap enforcement.
-        /// </summary>
-        protected override bool RequiresSnapEnforcement => true;
-        protected override bool HandlesOwnElevationInput => true;
         #endregion
 
         #region Input Queuing & State

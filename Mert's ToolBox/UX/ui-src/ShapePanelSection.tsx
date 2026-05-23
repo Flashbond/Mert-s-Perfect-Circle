@@ -1,5 +1,6 @@
 ﻿import React, { useEffect, useState } from "react";
 import { trigger, call, bindValue, useValue } from "cs2/api";
+import crossWalkIcon from "./Icons/CrossWalk.svg";
 import { formatMeters, formatSmart } from "./utils/Formatters";
 import { VanillaResolver } from "./utils/VanilliaResolver";
 import { parseActiveTool } from "./utils/ActiveTool";
@@ -16,6 +17,8 @@ const shapeDimensionStepArray$ = bindValue<number[]>("MertsToolBox", "ShapeDimen
 // Shape Bindings
 const shapeShapeName$ = bindValue<string>("MertsToolBox", "ShapeShapeName", "Circle");
 
+const suppressCrosswalks$ = bindValue<boolean>("MertsToolBox", "SuppressCrosswalks", false);
+
 // Diğer Bindings...
 const elevationValue$ = bindValue<number>("MertsToolBox", "ElevationValue");
 const elevationStepValue$ = bindValue<number>("MertsToolBox", "ElevationStepValue");
@@ -24,6 +27,7 @@ const elevationStepArray$ = bindValue<number[]>("MertsToolBox", "ElevationStepAr
 const isSnapGeometryActive$ = bindValue<boolean>("MertsToolBox", "IsSnapGeometryActive");
 const isSnapNetSideActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetSideActive");
 const isSnapNetAreaActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetAreaActive");
+
 const presetList$ = bindValue<string>("MertsToolBox", "PresetList", "");
 
 // --- COMPONENT DEFINITION ---
@@ -65,6 +69,8 @@ export const ShapePanelSection = () => {
     // Şekil İsmi (YENİ)
     const shapeName = useValue(shapeShapeName$) as string;
 
+    const suppressCrosswalks = useValue(suppressCrosswalks$) as boolean;
+
     const elevationValue = useValue(elevationValue$) as number;
     const elevationStepValue = useValue(elevationStepValue$) as number;
     const elevationStepValues = useValue(elevationStepArray$) as number[];
@@ -75,11 +81,23 @@ export const ShapePanelSection = () => {
 
     const presetListRaw = useValue(presetList$) as string;
 
-    const presetList = (presetListRaw || "")
+    type PresetListItem = {
+        label: string;
+        value: string;
+    };
+
+    const presetList: PresetListItem[] = (presetListRaw || "")
         .split(";")
         .map((item) => item.trim())
-        .filter((item) => item.length > 0);
-    
+        .filter((item) => item.length > 0)
+        .map((item) => {
+            const [label, value] = item.split("|");
+
+            return {
+                label: label?.trim() ?? item,
+                value: value?.trim() ?? label?.trim() ?? item,
+            };
+        });
     // --- RENDER ---
     if (!delayedShow) return null;
 
@@ -141,9 +159,17 @@ export const ShapePanelSection = () => {
                     tooltip={`${formatSmart(dimensionStepValue)}`}
                     values={dimensionStepValues}
                     selectedValue={dimensionStepValue}
-                    onSelect={(val) => {
-                        trigger("MertsToolBox", "ShapeDimensionStep", val);
-                    }}
+                    onSelect={(val) => trigger("MertsToolBox", "ShapeDimensionStep", val)}
+                />
+            </VanillaResolver.instance.Section>
+
+            <VanillaResolver.instance.Section title="Crosswalks">
+                <VanillaResolver.instance.ToolButton
+                    src={crossWalkIcon}
+                    selected={suppressCrosswalks}
+                    tooltip={suppressCrosswalks ? "Removed" : "Allowed"}
+                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
+                    onSelect={() => trigger("MertsToolBox", "ToggleSuppressCrosswalks")}
                 />
             </VanillaResolver.instance.Section>
 
@@ -205,7 +231,7 @@ export const ShapePanelSection = () => {
 
             {/* MERT LISTBOX (KLASİK) */}
             <MertListBox
-                items={presetList}
+                items={presetList.map(p => p.label)}
                 isOpen={presetPanelOpen}
                 onToggleOpen={() => {
                     setPresetPanelOpen(!presetPanelOpen);
@@ -218,12 +244,18 @@ export const ShapePanelSection = () => {
                     }
                     return success;
                 }}
-                onSelect={(presetName) => {
-                    trigger("MertsToolBox", "LoadPreset", presetName);
+                onSelect={(presetLabel) => {
+                    const preset = presetList.find(p => p.label === presetLabel);
+                    if (!preset) return;
+
+                    trigger("MertsToolBox", "LoadPreset", preset.value);
                     setPresetPanelOpen(false);
                 }}
-                onDelete={(presetName) => {
-                    trigger("MertsToolBox", "DeletePreset", presetName);
+                onDelete={(presetLabel) => {
+                    const preset = presetList.find(p => p.label === presetLabel);
+                    if (!preset) return;
+
+                    trigger("MertsToolBox", "DeletePreset", preset.value);
                 }}
             />
         </div>
