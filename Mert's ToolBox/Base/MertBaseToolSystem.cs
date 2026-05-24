@@ -47,20 +47,23 @@ namespace MertsToolBox
         public abstract string ToolName { get; }
 
         /// <summary>
-        /// Helix permissions.
-        /// </summary>
-        protected virtual bool AllowOverlapPlacement => false;
-        /// <summary>
         /// Indicates whether this tool overrides global snap settings.
         /// </summary>
-        protected virtual bool RequiresSnapEnforcement => false;
+        ///
+        protected bool m_ContextRecipeReady;
+
+        protected Game.Objects.PlacementFlags m_DesiredPlacementFlags =
+                    Game.Objects.PlacementFlags.RoadEdge |
+                    Game.Objects.PlacementFlags.RoadSide;
+        protected virtual bool RequiresSnapEnforcement => true;
+        protected virtual bool OverridesObjectToolSnapMask => true;
+        protected virtual bool WritesSubNetSnapMetadata => RequiresSnapEnforcement;
         protected virtual bool SuppressCrosswalks => MertToolState.SuppressCrosswalks;
 
         protected bool m_PendingCreateShape;
         private bool m_IsCreatingShape;
         private bool m_PendingObjectToolHandoff;
 
-        // --- Per-road stamp registry (NEW) ---
         protected static readonly Dictionary<Entity, AssetStampPrefab> s_StampByRoadEntity = new();
         protected static readonly Dictionary<Entity, Entity> s_StampEntityByRoadEntity = new();
         protected static readonly Dictionary<Entity, StampBakeState> s_BakeStateByRoadEntity = new();
@@ -80,12 +83,6 @@ namespace MertsToolBox
             Failed = 3
         }
 
-        protected bool m_ContextRecipeReady;
-        protected bool m_ContextUsesRoadNode = false;
-
-        protected Game.Objects.PlacementFlags m_DesiredPlacementFlags =
-                    Game.Objects.PlacementFlags.RoadEdge |
-                    Game.Objects.PlacementFlags.RoadSide;
         #endregion
 
         #region Abstract Core
@@ -125,13 +122,13 @@ namespace MertsToolBox
 
             m_SelectedPrefabField = typeof(NetToolSystem).GetField("m_SelectedPrefab", BindingFlags.Instance | BindingFlags.NonPublic);
             m_PrefabField = typeof(NetToolSystem).GetField("m_Prefab", BindingFlags.Instance | BindingFlags.NonPublic);
+
             if (Mod.settings != null)
             {
                 Mod.settings.OnToolParametersChanged += RetrieveParametersFromSettings;
                 Mod.settings.OnSuppressCrosswalkChanged += OnSuppressCrosswalkSettingsChanged;
+                OnSuppressCrosswalkSettingsChanged();
             }
-
-            OnSuppressCrosswalkSettingsChanged();
         }
 
         /// <summary>
@@ -144,7 +141,7 @@ namespace MertsToolBox
 
             if (!ToolEnabled)
                 return;
-            
+
             KeepVanillaElevationDisabled();
 
             ProcessElevationInput();
@@ -153,7 +150,7 @@ namespace MertsToolBox
 
             if (m_PendingObjectToolHandoff && HandlePendingObjectToolHandoff())
                 return;
-   
+
             if (m_PendingCreateShape)
                 HandleExecuteCreateShape();
         }
@@ -179,7 +176,7 @@ namespace MertsToolBox
         }
 
         /// <summary>
-        /// Cleans up memory allocations and unbinds event listeners when the system is destroyed. 
+        /// Cleans up memory allocations and unbinds event listeners when the system is destroyed.
         /// </summary>
         protected override void OnDestroy()
         {
@@ -256,22 +253,17 @@ namespace MertsToolBox
                 out int widthCells,
                 out int depthCells,
                 out float costElevation))
-            {
                 return false;
-            }
 
             m_RuntimeStamp.m_Width = math.max(4, widthCells);
             m_RuntimeStamp.m_Depth = math.max(4, depthCells);
 
             if (!m_RuntimeStamp.TryGet<ObjectSubNets>(out ObjectSubNets objectSubNets) || objectSubNets == null)
-            {
                 objectSubNets = m_RuntimeStamp.AddComponent<ObjectSubNets>();
-            }
 
             objectSubNets.m_SubNets = generatedSubNets;
 
             ApplyCostMetadata(m_RuntimeStamp, generatedSubNets, roadPrefab, costElevation);
-
 
             m_RuntimeStamp.asset?.MarkDirty();
             m_LastUsedRoadPrefab = roadPrefab;

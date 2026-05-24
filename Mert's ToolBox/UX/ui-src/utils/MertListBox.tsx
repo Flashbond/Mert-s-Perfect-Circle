@@ -133,7 +133,7 @@ export const MertListBox: React.FC<MertListBoxProps> = ({
         if (textElement) {
             const isEllipsisActive = textElement.scrollWidth > textElement.clientWidth;
             if (!isEllipsisActive) return;
-       
+
 
             const rect = textElement.getBoundingClientRect();
             setTooltipData({

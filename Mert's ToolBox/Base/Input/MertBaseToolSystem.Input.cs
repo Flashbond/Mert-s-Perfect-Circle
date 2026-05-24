@@ -114,13 +114,10 @@ namespace MertsToolBox
             float value = m_ShadowElevationAction.ReadValue<float>();
 
             if (value > 0.1f)
-            {
                 RouteElevationToNetTool(+1);
-            }
             else if (value < -0.1f)
-            {
                 RouteElevationToNetTool(-1);
-            }
+
         }
 
         protected void DisableVanillaElevation()
@@ -216,7 +213,7 @@ namespace MertsToolBox
             }
             catch (Exception e)
             {
-                ModRuntime.Warn("[MERT][INPUT] RestoreVanillaElevation failed: " + e.Message);
+                ModRuntime.Warn("[INPUT] RestoreVanillaElevation failed: " + e.Message);
             }
             finally
             {
@@ -485,7 +482,7 @@ namespace MertsToolBox
                 MertToolState.ActiveTool = null;
 
             ToolEnabled = false;
-           
+
             ResetRuntimeStamp();
 
             try
@@ -501,7 +498,7 @@ namespace MertsToolBox
             if (exitMode == ToolExitMode.UserSelectionClose) return;
 
             if (exitMode == ToolExitMode.VanillaToolbarClear)  return;
-            
+
             if (exitMode == ToolExitMode.RestoreFromPlacement)
             {
                 RestoreLaunchRoadViaSelectAsset();
@@ -631,7 +628,7 @@ namespace MertsToolBox
 
         #region Cache & Profile Retrieval
         /// <summary>
-        /// Retrieves the exact physical width of the road from the smart cache. 
+        /// Retrieves the exact physical width of the road from the smart cache.
         /// Falls back to estimation if the road is somehow not cached.
         /// </summary>
         protected float GetCachedRoadWidth(NetPrefab roadPrefab)

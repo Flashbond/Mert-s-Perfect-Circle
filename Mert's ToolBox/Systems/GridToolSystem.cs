@@ -59,7 +59,7 @@ namespace MertsToolBox
                 DisplayName = SanitizeFileName(
                     $"{ToolId}_{prefabName}_Block{blockWidth}x{blockLength}U_Grid{columns}x{rows}" +
                     $"{(m_IsAlternating ? "_Alternating" : "")}" +
-                    $"{(m_IsOrientationLeftBottom ? "_Bottom-Left" : "_Bottom-Right")}" +
+                    $"{(m_IsOrientationLeftBottom ? "_Left-Bottom" : "_Right-Bottom")}" +
                     $"{(MertToolState.SuppressCrosswalks ? "_NoCrosswalks" : "")}"
                 ),
                 Values = new Dictionary<string, float>
@@ -225,7 +225,7 @@ namespace MertsToolBox
         public bool GetIsOrientationLeftBottom() => m_IsOrientationLeftBottom;
 
         /// <summary>
-        /// Determines if the selected road is functionally a one-way street by examining its 
+        /// Determines if the selected road is functionally a one-way street by examining its
         /// internal RoadData flags instead of brittle string-based name checks.
         /// </summary>
         public bool IsCurrentPrefabValidForOneWayPattern()
@@ -422,35 +422,56 @@ namespace MertsToolBox
             float[] xs = new float[m_CurrentSessionColumns + 1];
             float[] ys = new float[m_CurrentSessionRows + 1];
 
-            for (int i = 0; i <= m_CurrentSessionColumns; i++) xs[i] = originX + i * stepX;
-            for (int j = 0; j <= m_CurrentSessionRows; j++) ys[j] = originY + j * stepY;
+            for (int i = 0; i <= m_CurrentSessionColumns; i++)
+                xs[i] = originX + (m_CurrentSessionColumns - i) * stepX;
+
+            for (int j = 0; j <= m_CurrentSessionRows; j++)
+                ys[j] = originY + (m_CurrentSessionRows - j) * stepY;
 
             List<ObjectSubNetInfo> segmentList = new();
             int GetNodeIndex(int c, int r) => r * (m_CurrentSessionColumns + 1) + c;
 
+            // Vertical roads
             for (int i = 0; i <= m_CurrentSessionColumns; i++)
             {
-                bool isForward = true;
-                if (m_IsAlternating) { isForward = (i % 2 == 0); if (m_IsOrientationLeftBottom) isForward = !isForward; }
+                bool isForward = IsVerticalForward(i);
+
                 for (int j = 0; j < m_CurrentSessionRows; j++)
                 {
                     float3 p1 = new(xs[i], baseElevation, ys[j]);
                     float3 p2 = new(xs[i], baseElevation, ys[j + 1]);
-                    int n1 = GetNodeIndex(i, j); int n2 = GetNodeIndex(i, j + 1);
-                    segmentList.Add(CreateStraightSegment(roadPrefab, isForward ? p1 : p2, isForward ? p2 : p1, isForward ? n1 : n2, isForward ? n2 : n1));
+
+                    int n1 = GetNodeIndex(i, j);
+                    int n2 = GetNodeIndex(i, j + 1);
+
+                    segmentList.Add(CreateStraightSegment(
+                        roadPrefab,
+                        isForward ? p1 : p2,
+                        isForward ? p2 : p1,
+                        isForward ? n1 : n2,
+                        isForward ? n2 : n1));
                 }
             }
 
+            // Horizontal roads
             for (int j = 0; j <= m_CurrentSessionRows; j++)
             {
-                bool isForward = true;
-                if (m_IsAlternating) { isForward = (j % 2 == 0); if (m_IsOrientationLeftBottom) isForward = !isForward; }
+                bool isForward = IsHorizontalForward(j);
+
                 for (int i = 0; i < m_CurrentSessionColumns; i++)
                 {
                     float3 p1 = new(xs[i], baseElevation, ys[j]);
                     float3 p2 = new(xs[i + 1], baseElevation, ys[j]);
-                    int n1 = GetNodeIndex(i, j); int n2 = GetNodeIndex(i + 1, j);
-                    segmentList.Add(CreateStraightSegment(roadPrefab, isForward ? p1 : p2, isForward ? p2 : p1, isForward ? n1 : n2, isForward ? n2 : n1));
+
+                    int n1 = GetNodeIndex(i, j);
+                    int n2 = GetNodeIndex(i + 1, j);
+
+                    segmentList.Add(CreateStraightSegment(
+                        roadPrefab,
+                        isForward ? p1 : p2,
+                        isForward ? p2 : p1,
+                        isForward ? n1 : n2,
+                        isForward ? n2 : n1));
                 }
             }
 
@@ -465,12 +486,7 @@ namespace MertsToolBox
         /// <summary>
         /// Creates a straight sub-network segment between two points with proper node indexing.
         /// </summary>
-        private ObjectSubNetInfo CreateStraightSegment(
-    NetPrefab prefab,
-    float3 start,
-    float3 end,
-    int startNode,
-    int endNode)
+        private ObjectSubNetInfo CreateStraightSegment(NetPrefab prefab, float3 start, float3 end, int startNode, int endNode)
         {
             float3 dir = end - start;
 
@@ -486,6 +502,28 @@ namespace MertsToolBox
                 m_NodeIndex = new int2(startNode, endNode),
                 m_ParentMesh = new int2(-1, -1),
             };
+        }
+        #endregion
+
+        #region Helpers
+        private bool IsVerticalForward(int column)
+        {
+            bool forward = true;
+
+            if (m_IsAlternating && column % 2 != 0)
+                forward = !forward;
+
+            return forward;
+        }
+
+        private bool IsHorizontalForward(int row)
+        {
+            bool forward = m_IsOrientationLeftBottom;
+
+            if (m_IsAlternating && row % 2 != 0)
+                forward = !forward;
+
+            return forward;
         }
         #endregion
     }

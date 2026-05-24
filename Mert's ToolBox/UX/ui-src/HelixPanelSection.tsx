@@ -203,17 +203,17 @@ export const HelixPanelSection = () => {
                 <VanillaResolver.instance.ToolButton
                     src={ccwIcon}
                     selected={!isClockwise}
-                    tooltip={!isClockwise ? "CCW ON" : "CCW OFF"}
+                    tooltip={!isClockwise ? "Turns counter-clockwise" : "Turns clockwise"}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
                     onSelect={() => trigger("MertsToolBox", "HelixToggleDirection")}
                 />
             </VanillaResolver.instance.Section>
 
-            <VanillaResolver.instance.Section title="Crosswalks">
+            <VanillaResolver.instance.Section title="Remove Crosswalks">
                 <VanillaResolver.instance.ToolButton
                     src={crossWalkIcon}
                     selected={suppressCrosswalks}
-                    tooltip={suppressCrosswalks ? "Removed" : "Allowed"}
+                    tooltip={suppressCrosswalks ? "Crosswalks are removed" : "Crosswalks are allowed"}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
                     onSelect={() => trigger("MertsToolBox", "ToggleSuppressCrosswalks")}
                 />

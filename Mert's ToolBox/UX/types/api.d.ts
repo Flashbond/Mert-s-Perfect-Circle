@@ -1,6 +1,6 @@
 declare module "cs2/api" {
   import { MutableRefObject } from 'react';
-  
+
   export interface ValueBinding<T> {
   	readonly value: T;
   	subscribe(listener?: BindingListener<T>): ValueSubscription<T>;
@@ -82,7 +82,7 @@ declare module "cs2/api" {
   	reverse(): void;
   	playFromTo(playTime: number, pauseTime: number, callback?: () => void): void;
   }
-  
+
   export {};
-  
+
 }

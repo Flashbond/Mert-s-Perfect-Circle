@@ -27,8 +27,6 @@ const elevationStepValue$ = bindValue<number>("MertsToolBox", "ElevationStepValu
 const elevationStepArray$ = bindValue<number[]>("MertsToolBox", "ElevationStepArray");
 
 const isSnapGeometryActive$ = bindValue<boolean>("MertsToolBox", "IsSnapGeometryActive");
-const isSnapNetSideActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetSideActive");
-const isSnapNetAreaActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetAreaActive");
 
 const gridIsOneWaySupported$ = bindValue<boolean>("MertsToolBox", "GridIsOneWaySupported");
 
@@ -82,8 +80,6 @@ export const GridPanelSection = () => {
     const elevationStepValues = useValue(elevationStepArray$) as number[];
 
     const isSnapGeometryActive = useValue(isSnapGeometryActive$) as boolean;
-    const isSnapNetSideActive = useValue(isSnapNetSideActive$) as boolean;
-    const isSnapNetAreaActive = useValue(isSnapNetAreaActive$) as boolean;
 
     const presetListRaw = useValue(presetList$) as string;
 
@@ -206,7 +202,7 @@ export const GridPanelSection = () => {
                     tooltip={
                         !isOneWaySupported
                             ? "REQUIRES ONE-WAY ROAD"
-                            : (isAlternating ? "Is Alternating" : "Not Alternating")
+                            : (isAlternating ? "Parallel road directions alternate" : "Parallel roads lead in the same direction")
                     }
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
                     onSelect={() => trigger("MertsToolBox", "GridToggleAlternating")}
@@ -218,18 +214,18 @@ export const GridPanelSection = () => {
                     tooltip={
                         !isOneWaySupported
                             ? "REQUIRES ONE-WAY ROAD"
-                            : (isOrientationLeftBottom ? "Bottom-Left" : "Bottom-Right")
+                            : (isOrientationLeftBottom ? "Road order starts with left to bottom" : "Road order starts with right to bottom")
                     }
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
                     onSelect={() => trigger("MertsToolBox", "GridToggleOrientation")}
                 />
             </VanillaResolver.instance.Section>
 
-            <VanillaResolver.instance.Section title="Crosswalks">
+            <VanillaResolver.instance.Section title="Remove Crosswalks">
                 <VanillaResolver.instance.ToolButton
                     src={crossWalkIcon}
                     selected={suppressCrosswalks}
-                    tooltip={suppressCrosswalks ? "Removed" : "Allowed"}
+                    tooltip={suppressCrosswalks ? "Crosswalks are removed" : "Crosswalks are allowed"}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
                     onSelect={() => trigger("MertsToolBox", "ToggleSuppressCrosswalks")}
                 />
@@ -268,24 +264,8 @@ export const GridPanelSection = () => {
                         src="Media/Tools/Snap Options/ExistingGeometry.svg"
                         selected={isSnapGeometryActive}
                         focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                        onSelect={() => trigger("MertsToolBox", "GridToggleSnap", "Geometry")}
-                        tooltip={`Existing Geometry`}
-                    />
-
-                    <VanillaResolver.instance.ToolButton
-                        src="Media/Tools/Snap Options/NetSide.svg"
-                        selected={isSnapNetSideActive}
-                        focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                        onSelect={() => trigger("MertsToolBox", "GridToggleSnap", "NetSide")}
-                        tooltip={`Net Side`}
-                    />
-
-                    <VanillaResolver.instance.ToolButton
-                        src="Media/Tools/Snap Options/NetArea.svg"
-                        selected={isSnapNetAreaActive}
-                        focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                        onSelect={() => trigger("MertsToolBox", "GridToggleSnap", "NetArea")}
-                        tooltip={`Net Area`}
+                        onSelect={() => trigger("MertsToolBox", "ToggleSnap")}
+                        tooltip={`Snap to existing geometry`}
                     />
                 </VanillaResolver.instance.Section>
 

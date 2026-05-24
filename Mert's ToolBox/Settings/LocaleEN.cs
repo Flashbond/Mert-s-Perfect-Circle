@@ -86,7 +86,7 @@ namespace MertsToolBox.Settings
 
                 { m_Settings.GetOptionLabelLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForHelixTurnAdjustment)), "Use Ctrl+Wheel for Turn adjustment" },
                 { m_Settings.GetOptionDescLocaleID(nameof(ToolBoxSettings.UseCtrlWheelForHelixTurnAdjustment)), "Allows the Helix tool turns to be adjusted with Ctrl+Mouse Wheel. Recommended to turn this off if it conflicts with another binding." },
-               
+
                 // -------------------------
                 // Soft Block
                 // -------------------------

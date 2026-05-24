@@ -9,8 +9,8 @@
 	C28.6,4.9,27.3,3.6,25.8,3.6z M24.3,9.5v5.2h-6.2V8.1h5C23.8,8.1,24.3,8.7,24.3,9.5z M8.9,8.1h5.7v6.6H7.7V9.4
 	C7.7,8.7,8.3,8.1,8.9,8.1z M7.7,22.7v-4.5h6.9v5.8H9C8.3,23.8,7.7,23.3,7.7,22.7z M23.1,23.8h-4.8v-5.7h6v4.5
 	C24.3,23.3,23.8,23.8,23.1,23.8z"
-    fill="url(#gridToolRectGrad)" 
-    stroke="#707070" 
-    stroke-width="1.5" 
+    fill="url(#gridToolRectGrad)"
+    stroke="#707070"
+    stroke-width="1.5"
     stroke-miterlimit="10"/>
 </svg>

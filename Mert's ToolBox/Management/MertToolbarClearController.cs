@@ -54,7 +54,7 @@ public static class MertToolbarClearController
             true);
 
         if (skipClearReplay) return false;
-        
+
         try
         {
             MertToolState.ControlledClearSelectionReplay = true;

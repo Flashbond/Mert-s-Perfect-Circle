@@ -32,13 +32,13 @@ export const MertSlider: React.FC<MertSliderProps> = ({
 
     const calculateValueFromMouse = useCallback((clientX: number) => {
         if (!trackRef.current) return value;
-        
+
         const rect = trackRef.current.getBoundingClientRect();
         const xPos = Math.max(0, Math.min(clientX - rect.left, rect.width));
         const percentage = xPos / rect.width;
         const rawValue = min + percentage * (max - min);
         const steppedValue = Math.round(rawValue / step) * step;
-        
+
         return Math.min(Math.max(steppedValue, min), max);
     }, [min, max, step, value]);
 
@@ -79,7 +79,7 @@ export const MertSlider: React.FC<MertSliderProps> = ({
 
     return (
         <div className={styles.sliderContainer} onContextMenu={(e) => e.stopPropagation()}>
-            <div 
+            <div
                 className={`${styles.trackWrapper} ${isDragging ? styles.dragging : ''}`}
                 ref={trackRef}
                 onMouseDown={handleMouseDown}

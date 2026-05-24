@@ -22,7 +22,7 @@ namespace MertsToolBox.Systems
         private float m_CurrentSessionBorderRadius = -1f;
 
         private bool m_UseStraightCorners = false;
-        
+
         private int m_PendingWidthChange = 0;
         private int m_TargetWidthStep = -1;
         private int m_PendingLengthChange = 0;
@@ -156,7 +156,7 @@ namespace MertsToolBox.Systems
 
             m_BorderRadiusSnapState = BorderRadiusSnapState.Armed;
         }
-    
+
         /// <summary>
         /// Queues a change in the width based on the given direction.
         /// </summary>
@@ -246,7 +246,7 @@ namespace MertsToolBox.Systems
         /// Retrieves the current session length, applying default settings if uninitialized.
         /// </summary>
         public int GetCurrentLength() { if (m_CurrentSessionLength < 0) m_CurrentSessionLength = Mod.settings != null ? Mod.settings.DefaultSoftBlockLength : 192; return m_CurrentSessionLength; }
-       
+
         /// <summary>
         /// Retrieves the current session radius, applying default settings if uninitialized.
         /// </summary>
@@ -512,7 +512,7 @@ namespace MertsToolBox.Systems
         /// </summary>
         private ObjectSubNetInfo[] BuildAdaptiveShapeSubNets(NetPrefab roadPrefab,float rx,float ry,float elevation)
         {
-            
+
             const float MinLineLength = 0.5f;
 
             float shortest = math.min(rx, ry);

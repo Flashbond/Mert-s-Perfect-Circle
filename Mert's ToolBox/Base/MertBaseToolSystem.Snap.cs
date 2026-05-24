@@ -1,14 +1,11 @@
 ﻿using Game.Tools;
+using MertsToolBox.Management;
 
 namespace MertsToolBox
 {
     public abstract partial class MertBaseToolSystem
     {
         #region Fields & State
-        protected bool m_SnapGeometryEnabled = true;
-        protected bool m_SnapNetSideEnabled = false;
-        protected bool m_SnapNetAreaEnabled = true;
-
         protected bool m_HasStoredSnapMask;
         protected Snap m_StoredSnapMask;
         #endregion
@@ -17,49 +14,24 @@ namespace MertsToolBox
         /// <summary>
         /// Gets a value indicating whether geometry snapping is currently enabled.
         /// </summary>
-        public bool IsSnapGeometryEnabled() => m_SnapGeometryEnabled;
-
-        /// <summary>
-        /// Gets a value indicating whether network side snapping is currently enabled.
-        /// </summary>
-        public bool IsSnapNetSideEnabled() => m_SnapNetSideEnabled;
-
-        /// <summary>
-        /// Gets a value indicating whether network area snapping is currently enabled.
-        /// </summary>
-        public bool IsSnapNetAreaEnabled() => m_SnapNetAreaEnabled;
+        public bool IsSnapGeometryEnabled() => MertToolState.SnapGeometryEnabled;
         #endregion
 
         #region Input Queuing & Toggling
         /// <summary>
         /// Queues a toggle action for the specified snap type.
         /// </summary>
-        public void QueueSnapToggle(string snapType) => ToggleSnap(snapType);
+        public void QueueSnapToggle() => ToggleSnap();
 
         /// <summary>
         /// Toggles the specified snap setting and applies the updated mask to the active tool.
         /// </summary>
-        public void ToggleSnap(string snapType)
+        public void ToggleSnap()
         {
-            switch (snapType)
-            {
-                case "Geometry":
-                    m_SnapGeometryEnabled = !m_SnapGeometryEnabled;
-                    break;
-
-                case "NetSide":
-                    m_SnapNetSideEnabled = !m_SnapNetSideEnabled;
-                    break;
-
-                case "NetArea":
-                    m_SnapNetAreaEnabled = !m_SnapNetAreaEnabled;
-                    break;
-            }
+            MertToolState.SnapGeometryEnabled = !MertToolState.SnapGeometryEnabled;
 
             if (ToolEnabled)
-            {
                 QueuePreviewRebuild();
-            }
         }
         #endregion
 
@@ -67,25 +39,14 @@ namespace MertsToolBox
         /// <summary>
         /// Builds and returns the current combined snap mask based on active settings.
         /// </summary>
-        protected Snap BuildCurrentSnapMask()
+        protected virtual Snap GetObjectToolSnapMask()
         {
-            Snap mask = Snap.None;
-
-            if (m_SnapGeometryEnabled) mask |= Snap.ExistingGeometry;
-            if (m_SnapNetSideEnabled) mask |= Snap.NetSide;
-            if (m_SnapNetAreaEnabled) mask |= Snap.NetArea | Snap.NetNode;
-
-            return mask;
+            return GetGlobalUserSnapMask();
         }
-
-        /// <summary>
-        /// Determines the ultimate desired snap mask, considering whether the tool enforces snapping.
-        /// </summary>
-        private Snap GetDesiredSnapMask()
+        private Snap GetGlobalUserSnapMask()
         {
-            return RequiresSnapEnforcement ? BuildCurrentSnapMask() : Snap.None;
+            return MertToolState.BuildGlobalSnapMask();
         }
-
         /// <summary>
         /// Applies the calculated snap mask directly to the active tool system.
         /// </summary>
@@ -93,14 +54,13 @@ namespace MertsToolBox
         {
             if (m_ToolSystem?.activeTool == null)
                 return;
-            Snap targetSnap = GetDesiredSnapMask();
+
+            Snap targetSnap = GetObjectToolSnapMask();
 
             if (m_ToolSystem.activeTool == m_ObjectToolSystem)
-            {
                 m_ObjectToolSystem.selectedSnap = targetSnap;
-                return;
-            }
-            m_ToolSystem.activeTool.selectedSnap = targetSnap;
+            else
+                m_ToolSystem.activeTool.selectedSnap = targetSnap;
         }
         #endregion
     }

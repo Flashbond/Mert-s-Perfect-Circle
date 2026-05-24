@@ -9,13 +9,15 @@ import { MertListBox } from './utils/MertListBox';
 const activeToolMode$ = bindValue<string>("MertsToolBox", "ActiveTool", "None|None");
 const toolBoxVisible$ = bindValue<boolean>("MertsToolBox", "IsToolBoxAllowed");
 
+// Shape bindings
+const shapeNames$ = bindValue<string[]>("MertsToolBox", "ShapeNamesArray");
+const shapeCurrentIndex$ = bindValue<number>("MertsToolBox", "ShapeCurrentIndex");
+const shapeMaxIndex$ = bindValue<number>("MertsToolBox", "ShapeMaxIndex");
+
 // Dimension Bindings
 const shapeDimension$ = bindValue<number>("MertsToolBox", "ShapeDimension");
 const shapeDimensionStepValue$ = bindValue<number>("MertsToolBox", "ShapeDimensionStepValue");
 const shapeDimensionStepArray$ = bindValue<number[]>("MertsToolBox", "ShapeDimensionStepArray");
-
-// Shape Bindings
-const shapeShapeName$ = bindValue<string>("MertsToolBox", "ShapeShapeName", "Circle");
 
 const suppressCrosswalks$ = bindValue<boolean>("MertsToolBox", "SuppressCrosswalks", false);
 
@@ -25,8 +27,6 @@ const elevationStepValue$ = bindValue<number>("MertsToolBox", "ElevationStepValu
 const elevationStepArray$ = bindValue<number[]>("MertsToolBox", "ElevationStepArray");
 
 const isSnapGeometryActive$ = bindValue<boolean>("MertsToolBox", "IsSnapGeometryActive");
-const isSnapNetSideActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetSideActive");
-const isSnapNetAreaActive$ = bindValue<boolean>("MertsToolBox", "IsSnapNetAreaActive");
 
 const presetList$ = bindValue<string>("MertsToolBox", "PresetList", "");
 
@@ -61,13 +61,15 @@ export const ShapePanelSection = () => {
         };
     }, [rawShow]);
 
+    const shapeNames = useValue(shapeNames$) || [];
+    const currentIndex = useValue(shapeCurrentIndex$) || 0;
+    const maxIndex = useValue(shapeMaxIndex$) || 0;
+    const currentShapeName = shapeNames[currentIndex] || "Circle";
+
     // --- DATA BINDING EVALUATION ---
     const dimension = useValue(shapeDimension$) as number;
     const dimensionStepValue = useValue(shapeDimensionStepValue$) as number;
     const dimensionStepValues = useValue(shapeDimensionStepArray$) as number[];
-
-    // Şekil İsmi (YENİ)
-    const shapeName = useValue(shapeShapeName$) as string;
 
     const suppressCrosswalks = useValue(suppressCrosswalks$) as boolean;
 
@@ -76,8 +78,6 @@ export const ShapePanelSection = () => {
     const elevationStepValues = useValue(elevationStepArray$) as number[];
 
     const isSnapGeometryActive = useValue(isSnapGeometryActive$) as boolean;
-    const isSnapNetSideActive = useValue(isSnapNetSideActive$) as boolean;
-    const isSnapNetAreaActive = useValue(isSnapNetAreaActive$) as boolean;
 
     const presetListRaw = useValue(presetList$) as string;
 
@@ -108,30 +108,30 @@ export const ShapePanelSection = () => {
             onContextMenu={(e) => { e.stopPropagation(); }}
             style={{ display: "flex", flexDirection: "column" }}
         >
-          
+
             <div className={'panel-header'} style={{
                 fontSize: "1.1em",
                 fontWeight: 600,
                 padding: "2rem 10rem"
             }}>{activeTool.name}</div>
 
-            {/* SHAPE ROW (YENİ EKLENEN SATIR) */}
+            {/* SHAPE ROW */}
             <VanillaResolver.instance.Section title="Shape">
                 <VanillaResolver.instance.ToolButton
                     src="Media/Glyphs/ThickStrokeArrowDown.svg"
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    disabled={shapeName === "Triangle"}
+                    disabled={currentIndex === 0}
                     onSelect={() => trigger("MertsToolBox", "ShapeSidesDown")}
                 />
 
                 <div className={VanillaResolver.instance.mouseToolOptionsTheme["number-field"]} style={{ width: "33.33%" }}>
-                    {shapeName}
+                    {currentShapeName}
                 </div>
 
                 <VanillaResolver.instance.ToolButton
                     src="Media/Glyphs/ThickStrokeArrowUp.svg"
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    disabled={shapeName === "Circle"}
+                    disabled={currentIndex === maxIndex}
                     onSelect={() => trigger("MertsToolBox", "ShapeSidesUp")}
                 />
             </VanillaResolver.instance.Section>
@@ -163,11 +163,11 @@ export const ShapePanelSection = () => {
                 />
             </VanillaResolver.instance.Section>
 
-            <VanillaResolver.instance.Section title="Crosswalks">
+            <VanillaResolver.instance.Section title="Remove Crosswalks">
                 <VanillaResolver.instance.ToolButton
                     src={crossWalkIcon}
                     selected={suppressCrosswalks}
-                    tooltip={suppressCrosswalks ? "Removed" : "Allowed"}
+                    tooltip={suppressCrosswalks ? "Crosswalks are removed" : "Crosswalks are allowed"}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
                     onSelect={() => trigger("MertsToolBox", "ToggleSuppressCrosswalks")}
                 />
@@ -208,24 +208,8 @@ export const ShapePanelSection = () => {
                     src="Media/Tools/Snap Options/ExistingGeometry.svg"
                     selected={isSnapGeometryActive}
                     focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "ToggleShapeSnap", "Geometry")}
-                    tooltip={`Existing Geometry`}
-                />
-
-                <VanillaResolver.instance.ToolButton
-                    src="Media/Tools/Snap Options/NetSide.svg"
-                    selected={isSnapNetSideActive}
-                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "ToggleShapeSnap", "NetSide")}
-                    tooltip={`Net Side`}
-                />
-
-                <VanillaResolver.instance.ToolButton
-                    src="Media/Tools/Snap Options/NetArea.svg"
-                    selected={isSnapNetAreaActive}
-                    focusKey={VanillaResolver.instance.FOCUS_DISABLED}
-                    onSelect={() => trigger("MertsToolBox", "ToggleShapeSnap", "NetArea")}
-                    tooltip={`Net Area`}
+                    onSelect={() => trigger("MertsToolBox", "ToggleSnap")}
+                    tooltip={`Snap to existing geometry`}
                 />
             </VanillaResolver.instance.Section>
 

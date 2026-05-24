@@ -35,7 +35,7 @@ namespace MertsToolBox
                 PrimeAndShowPreviewOnEnable();
             }
         }
-      
+
         /// <summary>
         /// Requests the active tool to disable and executes a graceful exit using the specified mode.
         /// </summary>

@@ -10,7 +10,7 @@ namespace MertsToolBox.Systems
 {
     public partial class ShapeToolSystem : MertBaseToolSystem
     {
-        
+
         #region Fields & Properties
         private int m_CurrentSessionDimension = -1;
         public readonly int[] m_DimensionSteps = new int[] { 8, 6, 4, 2 };

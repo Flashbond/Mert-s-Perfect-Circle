@@ -69,7 +69,7 @@ export const ToolBoxActionHints = () => {
     }, []);
 
     const content = useMemo(() => {
-        
+
         if (activeTool.id === "None") return null;
 
         let actionText = "";

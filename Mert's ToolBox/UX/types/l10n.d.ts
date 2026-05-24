@@ -1,6 +1,6 @@
 declare module "cs2/l10n" {
   import { FC, FunctionComponent, MemoExoticComponent } from 'react';
-  
+
   export interface LocComponent<P = unknown> extends MemoExoticComponent<FunctionComponent<P>> {
   	renderString: LocStringRenderer<P>;
   	propsAreEqual: PropsAreEqual<P>;
@@ -200,7 +200,7 @@ declare module "cs2/l10n" {
   	reverse(): void;
   	playFromTo(playTime: number, pauseTime: number, callback?: () => void): void;
   }
-  
+
   export {
   	LocalizedBounds$1 as LocalizedBounds,
   	LocalizedFraction$1 as LocalizedFraction,
@@ -208,7 +208,7 @@ declare module "cs2/l10n" {
   	LocalizedString$1 as LocalizedString,
   	useCachedLocalization as useLocalization,
   };
-  
+
   export {};
-  
+
 }

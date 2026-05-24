@@ -1,6 +1,6 @@
 declare module "cs2/modding" {
   import { ComponentType } from 'react';
-  
+
   export type ModuleRegistryExtend = <T extends ComponentType<any>>(curr: T) => (props: any) => JSX.Element;
   export type ModuleRegistryAppend = ComponentType<{}> | (() => JSX.Element);
   export type AppendHookTargets = "Menu" | "Editor" | "Game" | "GameTopLeft" | "GameTopRight" | "GameBottomRight";
@@ -40,7 +40,7 @@ declare module "cs2/modding" {
   	reverse(): void;
   	playFromTo(playTime: number, pauseTime: number, callback?: () => void): void;
   }
-  
+
   export {};
-  
+
 }

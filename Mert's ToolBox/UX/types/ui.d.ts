@@ -1,6 +1,6 @@
 declare module "cs2/ui" {
   import { CSSProperties, HTMLAttributes, PropsWithChildren, ReactElement, ReactNode, Ref, RefObject } from 'react';
-  
+
   export interface RefReactElement<T = any, P = any> extends ReactElement<P> {
   	ref?: Ref<T>;
   }
@@ -690,7 +690,7 @@ declare module "cs2/ui" {
   	reverse(): void;
   	playFromTo(playTime: number, pauseTime: number, callback?: () => void): void;
   }
-  
+
   export {
   	ButtonProps$1 as ButtonProps,
   	DropdownItem$1 as DropdownItem,
@@ -700,7 +700,7 @@ declare module "cs2/ui" {
   	PanelProps$1 as PanelProps,
   	UITriggeredConfirmationDialog as ConfirmationDialog,
   };
-  
+
   export {};
-  
+
 }

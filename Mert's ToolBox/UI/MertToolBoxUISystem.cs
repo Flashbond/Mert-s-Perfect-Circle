@@ -120,7 +120,7 @@ namespace MertsToolBox
             EnableAction(m_RedoToolParameterAction);
 
             RefreshToolListBinding();
-            
+
         }
 
         /// <summary>
@@ -333,12 +333,6 @@ namespace MertsToolBox
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapGeometryActive",
                 () => GetEnabledMertTool()?.IsSnapGeometryEnabled() ?? false));
 
-            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapNetSideActive",
-                () => GetEnabledMertTool()?.IsSnapNetSideEnabled() ?? false));
-
-            AddUpdateBinding(new MertPolledBinding<bool>(ModId, "IsSnapNetAreaActive",
-                () => GetEnabledMertTool()?.IsSnapNetAreaEnabled() ?? false));
-
             // Action Hints
             AddUpdateBinding(new MertPolledBinding<bool>(ModId, "ShowShapeCtrlWheelHint",
                 () => Mod.settings != null && Mod.settings.UseCtrlWheelForShapeDimensionAdjustment));
@@ -350,7 +344,7 @@ namespace MertsToolBox
             AddUpdateBinding(new MertPolledBinding<string>(ModId, "ActionStatusText",
                 () => GetActionStatusText(), ""));
 
-            // Preset Bindings          
+            // Preset Bindings
             m_PresetListBinding = new MertMutableBinding<string>(ModId, "PresetList", "");
             AddBinding(m_PresetListBinding);
 
@@ -380,8 +374,8 @@ namespace MertsToolBox
                 () => GetEnabledMertTool()?.QueueElevationChangeFromUi(-1)));
 
             // Snap Trigger
-            AddBinding(new TriggerBinding<string>(ModId,"ToggleSnap",
-                snapType => GetEnabledMertTool()?.QueueSnapToggle(snapType)));
+            AddBinding(new TriggerBinding(ModId,"ToggleSnap",
+                () => GetEnabledMertTool()?.QueueSnapToggle()));
 
             // Crosswalk Trigger
             AddBinding(new TriggerBinding(ModId, "ToggleSuppressCrosswalks", () =>
@@ -431,6 +425,7 @@ namespace MertsToolBox
             AddBinding(new TriggerBinding(ModId, "GridRowsUp", () => m_Grid?.QueueRowsChange(+1)));
             AddBinding(new TriggerBinding(ModId, "GridRowsDown", () => m_Grid?.QueueRowsChange(-1)));
             AddBinding(new TriggerBinding(ModId, "GridToggleAlternating", () => m_Grid?.QueueToggleAlternating()));
+            AddBinding(new TriggerBinding(ModId, "GridToggleOrientation", () => m_Grid?.QueueToggleOrientation()));
 
             // Preset Triggers
             AddBinding(new CallBinding<string, bool>(ModId, "SavePreset", (toolId) =>
@@ -525,7 +520,7 @@ namespace MertsToolBox
         {
             if (MertToolState.SuppressToolChangedDuringColdstart)
                 return;
-        
+
             if (IsRoadBuilderTool(tool))
             {
                 CloseTools(ToolExitMode.UserSelectionClose);
@@ -591,7 +586,7 @@ namespace MertsToolBox
         {
             if (m_ToolSystem == null)
                 return;
-          
+
             if (MertToolState.HasReleasedStaleObjectToolThisFrame)
                 return;
 
@@ -628,7 +623,6 @@ namespace MertsToolBox
             if (!entityAlive)
             {
                 MertToolState.HasReleasedStaleObjectToolThisFrame = true;
-                ModRuntime.Log("TryReleaseStaleStampAfterReload | stale stamp detected -> SilentTabClose");
                 CloseTools(ToolExitMode.VanillaToolbarClear);
             }
         }

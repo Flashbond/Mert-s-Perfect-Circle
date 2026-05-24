@@ -24,7 +24,7 @@ namespace MertsToolBox.Settings
     public class ToolBoxSettings : ModSetting
     {
         public const string TAB_GENERAL = "General";
-       
+
         public const string TAB_ROUNDABOUT = "Perfect Shape";
         public const string TAB_HELIX = "Procedural Helix";
         public const string TAB_SOFTBLOCK = "Soft Block";

@@ -1,7 +1,7 @@
 declare module "cs2/input" {
   import React$1 from 'react';
   import { CSSProperties, PropsWithChildren, ReactNode } from 'react';
-  
+
   export export class FocusSymbol {
   	readonly debugName: string;
   	readonly r: number;
@@ -801,11 +801,11 @@ declare module "cs2/input" {
   	reverse(): void;
   	playFromTo(playTime: number, pauseTime: number, callback?: () => void): void;
   }
-  
+
   export {
   	GamepadButton$1 as GamepadButton,
   };
-  
+
   export {};
-  
+
 }

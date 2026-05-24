@@ -41,8 +41,8 @@ namespace MertsToolBox.Core
             updateSystem.UpdateAt<SoftBlockToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<GridToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<MertToolBoxUISystem>(SystemUpdatePhase.UIUpdate);
-            
-            ModRuntime.Log("ToolBox loaded.");         
+
+            ModRuntime.Log("ToolBox loaded.");
         }
 
         /// <summary>

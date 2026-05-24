@@ -22,8 +22,6 @@ namespace MertsToolBox
         private static bool s_ObjectToolFoundationWarmFailed;
         private static int s_ObjectToolWarmAttempts;
         private const int MaxObjectToolWarmAttempts = 3;
-
-        private readonly Dictionary<Entity, Game.Prefabs.RoadFlags> m_OriginalRoadFlags = new();
         #endregion
 
 
@@ -250,8 +248,8 @@ namespace MertsToolBox
         private NetPrefab TryFindWarmupRoadPrefab()
         {
             EntityQuery query = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<Game.Prefabs.NetData>(),
-                ComponentType.ReadOnly<Game.Prefabs.PrefabData>()
+                ComponentType.ReadOnly<NetData>(),
+                ComponentType.ReadOnly<PrefabData>()
             );
 
             if (query.IsEmptyIgnoreFilter)
@@ -281,8 +279,8 @@ namespace MertsToolBox
                 return;
 
             EntityQuery query = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<Game.Prefabs.NetData>(),
-                ComponentType.ReadOnly<Game.Prefabs.PrefabData>()
+                ComponentType.ReadOnly<NetData>(),
+                ComponentType.ReadOnly<PrefabData>()
             );
 
             if (query.IsEmptyIgnoreFilter)
@@ -495,8 +493,7 @@ namespace MertsToolBox
             }
             else
             {
-                ModRuntime.Warn(
-                    $"[ROAD-STAMP] MISSING | road={currentRoad?.name ?? "NULL"}");
+                ModRuntime.Warn($"[ROAD-STAMP] MISSING | road={currentRoad?.name ?? "NULL"}");
                 return;
             }
 
@@ -526,15 +523,13 @@ namespace MertsToolBox
         /// </summary>
         private void PrepareManualIntersectionLikeContextRecipe()
         {
-            m_DesiredPlacementFlags =
-                Game.Objects.PlacementFlags.RoadEdge |
-                Game.Objects.PlacementFlags.RoadSide;
+            m_DesiredPlacementFlags = Game.Objects.PlacementFlags.RoadEdge | Game.Objects.PlacementFlags.RoadSide;
         }
 
         /// <summary>
         /// Wraps the application of snapping metadata to the target entity in a safe try-catch block.
         /// </summary>
-        private void PrepareRuntimeStampSnapMetadata(Entity targetEntity)
+        private void PrepareRuntimeStampPlacementMetadata(Entity targetEntity)
         {
             try
             {
@@ -566,21 +561,18 @@ namespace MertsToolBox
 
             placeable.m_Flags |= m_DesiredPlacementFlags;
 
-            if (m_ContextUsesRoadNode)
-                placeable.m_Flags |= Game.Objects.PlacementFlags.RoadNode;
-            else
-                placeable.m_Flags &= ~Game.Objects.PlacementFlags.RoadNode;
+            bool shouldTouchSnapMetadata = WritesSubNetSnapMetadata;
 
-            placeable.m_Flags = AllowOverlapPlacement
-                ? placeable.m_Flags | Game.Objects.PlacementFlags.CanOverlap
-                : placeable.m_Flags & ~Game.Objects.PlacementFlags.CanOverlap;
+            bool isAnySnapActive =
+                shouldTouchSnapMetadata && IsAnyGlobalSnapEnabled();
 
-            bool isAnySnapActive = RequiresSnapEnforcement && (m_SnapGeometryEnabled || m_SnapNetSideEnabled || m_SnapNetAreaEnabled);
-
-            if (isAnySnapActive)
-                placeable.m_Flags |= Game.Objects.PlacementFlags.SubNetSnap;
-            else
-                placeable.m_Flags &= ~Game.Objects.PlacementFlags.SubNetSnap;
+            if (shouldTouchSnapMetadata)
+            {
+                if (isAnySnapActive)
+                    placeable.m_Flags |= Game.Objects.PlacementFlags.SubNetSnap;
+                else
+                    placeable.m_Flags &= ~Game.Objects.PlacementFlags.SubNetSnap;
+            }
 
             if (oldFlags != placeable.m_Flags || changed)
             {
@@ -592,23 +584,21 @@ namespace MertsToolBox
             {
                 bool2 dynamicSubNetSnapping = new(isAnySnapActive, isAnySnapActive);
 
-                DynamicBuffer<SubNet> subNets =
-                    EntityManager.GetBuffer<SubNet>(targetEntity);
+                DynamicBuffer<SubNet> subNets = EntityManager.GetBuffer<SubNet>(targetEntity);
 
-                CompositionFlags suppressionFlags =
-                    BuildCommonSuppressionFlags();
+                CompositionFlags suppressionFlags = BuildCommonSuppressionFlags();
 
                 for (int i = 0; i < subNets.Length; i++)
                 {
                     SubNet subNet = subNets[i];
-
-                    if (subNet.m_Snapping.x != dynamicSubNetSnapping.x ||
-                        subNet.m_Snapping.y != dynamicSubNetSnapping.y)
+                    if (shouldTouchSnapMetadata)
                     {
-                        subNet.m_Snapping = dynamicSubNetSnapping;
-                        changed = true;
+                        if (subNet.m_Snapping.x != dynamicSubNetSnapping.x || subNet.m_Snapping.y != dynamicSubNetSnapping.y)
+                        {
+                            subNet.m_Snapping = dynamicSubNetSnapping;
+                            changed = true;
+                        }
                     }
-
                     if (suppressionFlags != default)
                     {
                         subNet.m_Upgrades.m_General |= suppressionFlags.m_General;
@@ -662,7 +652,7 @@ namespace MertsToolBox
                 return false;
 
             Entity refreshedEntity = RefreshRuntimeStampEntity(m_RuntimeStamp);
-            
+
             if (refreshedEntity != Entity.Null && EntityManager.Exists(refreshedEntity))
             {
                 RuntimeStampEntity = refreshedEntity;
@@ -695,7 +685,7 @@ namespace MertsToolBox
             DynamicBuffer<Game.Prefabs.SubNet> subNets = EntityManager.GetBuffer<Game.Prefabs.SubNet>(entity);
             if (subNets.Length == 0)
                 return false;
-            
+
             return true;
         }
 
@@ -730,8 +720,7 @@ namespace MertsToolBox
             if (!TryResolvePendingHandoffEntity(out Entity refreshedEntity))
                 return false;
 
-            if (RequiresSnapEnforcement)
-                PrepareRuntimeStampSnapMetadata(refreshedEntity);
+            PrepareRuntimeStampPlacementMetadata(refreshedEntity);
 
             AssetStampPrefab stampToHandOff = m_PendingHandoffStamp;
 
@@ -741,7 +730,7 @@ namespace MertsToolBox
             ClearPendingHandoff();
             HandoffToObjectTool(stampToHandOff);
 
-            
+
             return true;
         }
 
@@ -809,7 +798,7 @@ namespace MertsToolBox
                 if (m_ObjectToolSystem.mode != ObjectToolSystem.Mode.Stamp)
                     m_ObjectToolSystem.mode = ObjectToolSystem.Mode.Stamp;
 
-                if (RequiresSnapEnforcement)
+                if (OverridesObjectToolSnapMask)
                     ApplySnapMaskToActiveTool();
             }
             catch (Exception e)
@@ -817,7 +806,9 @@ namespace MertsToolBox
                 ModRuntime.Warn($"HandoffToObjectTool error: {e}");
             }
         }
+        #endregion
 
+        #region Helpers
         /// <summary>
         /// Clears out any pending handoff flags and cached stamp data.
         /// </summary>
@@ -829,6 +820,10 @@ namespace MertsToolBox
         private void MarkRuntimeStampChanged()
         {
             m_RuntimeStampRevision++;
+        }
+        private bool IsAnyGlobalSnapEnabled()
+        {
+            return MertToolState.SnapGeometryEnabled;
         }
         #endregion
     }

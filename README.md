@@ -30,15 +30,15 @@ CORE FEATURES
 
 • Supports custom roads.
 
-• Oreset system to keep favorite parameters and use them later.
+• Preset system to keep favorite parameters and use them later.
 
 
 
 USAGE
 
 1. Select a standard road network from the vanilla menu.
-2. Activate your desired tool (Roundabout, Helix, Grid, or Ellipse) from the tool panel.
-3. Adjust parameters (size, elevation, turns, etc.) using the designated hotkeys.
+2. Activate your desired tool (Perfect Shape, Procedural Helix, Soft Block, or Smart Grid) from the tool panel.
+3. Adjust parameters (size, elevation, turns, etc.) using vanilla-like interface.
 4. Click to place the procedural shape into your city.
 
 

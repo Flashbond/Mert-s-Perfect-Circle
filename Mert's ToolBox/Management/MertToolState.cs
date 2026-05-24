@@ -1,4 +1,5 @@
 using Game.Prefabs;
+using Game.Tools;
 using Unity.Entities;
 
 namespace MertsToolBox.Management
@@ -32,6 +33,19 @@ namespace MertsToolBox.Management
         public static bool HelixCleanupRequested { get; set; } = false;
         public static bool ActiveHelixUsesPierLikePrefab;
         public static bool SuppressCrosswalks { get; set; }
+        #endregion
+
+        #region Sanp States
+        public static bool SnapGeometryEnabled = true;
+
+        public static Snap BuildGlobalSnapMask()
+        {
+            Snap mask = Snap.NetArea | Snap.NetNode;
+
+            if (SnapGeometryEnabled) mask |= Snap.ExistingGeometry;
+
+            return mask;
+        }
         #endregion
         public static void CaptureLaunchContext(
             NetPrefab road,
