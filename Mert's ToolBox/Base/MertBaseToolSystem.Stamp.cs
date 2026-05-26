@@ -563,8 +563,7 @@ namespace MertsToolBox
 
             bool shouldTouchSnapMetadata = WritesSubNetSnapMetadata;
 
-            bool isAnySnapActive =
-                shouldTouchSnapMetadata && IsAnyGlobalSnapEnabled();
+            bool isAnySnapActive = shouldTouchSnapMetadata && IsAnyGlobalSnapEnabled();
 
             if (shouldTouchSnapMetadata)
             {
