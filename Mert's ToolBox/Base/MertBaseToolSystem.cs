@@ -55,6 +55,8 @@ namespace MertsToolBox
         protected Game.Objects.PlacementFlags m_DesiredPlacementFlags =
                     Game.Objects.PlacementFlags.RoadEdge |
                     Game.Objects.PlacementFlags.RoadSide;
+
+        protected virtual bool AllowOverlapPlacement => false;
         protected virtual bool RequiresSnapEnforcement => true;
         protected virtual bool OverridesObjectToolSnapMask => true;
         protected virtual bool WritesSubNetSnapMetadata => RequiresSnapEnforcement;

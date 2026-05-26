@@ -48,7 +48,7 @@ namespace MertsToolBox.Settings
 
         private int m_DefaultHelixDiameter = 96;
         private float m_DefaultTurns = 3f;
-        private float m_DefaultClearance = 8f;
+        private float m_DefaultClearance = 9f;
         private bool m_UseCtrlWheelForHelixTurnAdjustment = false;
 
         private int m_DefaultSoftBlockWidth = 96;
@@ -171,13 +171,13 @@ namespace MertsToolBox.Settings
         }
 
         [SettingsUISection(TAB_HELIX, GROUP_DEFAULTS)]
-        [SettingsUISlider(min = 8, max = 14, step = 1f)]
+        [SettingsUISlider(min = 9, max = 14, step = 1f)]
         public float DefaultClearance
         {
             get => m_DefaultClearance;
             set
             {
-                float clamped = Math.Clamp(value, 8f, 14f);
+                float clamped = Math.Clamp(value, 9f, 14f);
                 if (Math.Abs(m_DefaultClearance - clamped) < 0.0001f) return;
 
                 m_DefaultClearance = clamped;
@@ -328,7 +328,7 @@ namespace MertsToolBox.Settings
 
             m_DefaultHelixDiameter = 96;
             m_DefaultTurns = 3f;
-            m_DefaultClearance = 8f;
+            m_DefaultClearance = 9f;
             m_UseCtrlWheelForHelixTurnAdjustment = false;
 
             m_DefaultSoftBlockWidth = 96;

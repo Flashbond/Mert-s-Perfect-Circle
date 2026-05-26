@@ -561,6 +561,11 @@ namespace MertsToolBox
 
             placeable.m_Flags |= m_DesiredPlacementFlags;
 
+            if (AllowOverlapPlacement)
+                placeable.m_Flags |= Game.Objects.PlacementFlags.CanOverlap;
+            else
+                placeable.m_Flags &= ~Game.Objects.PlacementFlags.CanOverlap;
+
             bool shouldTouchSnapMetadata = WritesSubNetSnapMetadata;
 
             bool isAnySnapActive = shouldTouchSnapMetadata && IsAnyGlobalSnapEnabled();
@@ -584,7 +589,10 @@ namespace MertsToolBox
                 bool2 dynamicSubNetSnapping = new(isAnySnapActive, isAnySnapActive);
 
                 DynamicBuffer<SubNet> subNets = EntityManager.GetBuffer<SubNet>(targetEntity);
-
+                for (int i = 0; i < subNets.Length; i++)
+                {
+                    SubNet sn = subNets[i];
+                }
                 CompositionFlags suppressionFlags = BuildCommonSuppressionFlags();
 
                 for (int i = 0; i < subNets.Length; i++)
@@ -598,12 +606,13 @@ namespace MertsToolBox
                             changed = true;
                         }
                     }
+               
                     if (suppressionFlags != default)
                     {
                         subNet.m_Upgrades.m_General |= suppressionFlags.m_General;
                         subNet.m_Upgrades.m_Left |= suppressionFlags.m_Left;
                         subNet.m_Upgrades.m_Right |= suppressionFlags.m_Right;
-
+                    
                         changed = true;
                     }
 

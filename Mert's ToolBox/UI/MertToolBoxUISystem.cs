@@ -257,7 +257,7 @@ namespace MertsToolBox
                 new ArrayWriter<float>()
             ));
             AddUpdateBinding(new MertPolledBinding<float>(ModId, "HelixClearance",
-                () => m_Helix?.GetCurrentClearance() ?? 8f));
+                () => m_Helix?.GetCurrentClearance() ?? 9f));
             AddUpdateBinding(new MertPolledBinding<float>(ModId, "HelixClearanceStepValue",
                 () => m_Helix?.GetClearanceStepSize() ?? 2));
             AddBinding(new ValueBinding<float[]>(

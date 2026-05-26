@@ -34,7 +34,7 @@
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/merts-perfect-circle-feedback-suggestions-bug-reports.1911521/" />
 
 	<!--Version of the mod-->
-	<ModVersion Value="1.0.0" />
+	<ModVersion Value="1.0.1" />
 
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.5.*" />
@@ -47,7 +47,7 @@
 
 	<!--Change log for new version-->
 	<ChangeLog>
-		* Release version
+		* Procedural Helix now requires Anarchy mode in order to preserve vanilla experience.
 	</ChangeLog>
 
 	<!--External links-->

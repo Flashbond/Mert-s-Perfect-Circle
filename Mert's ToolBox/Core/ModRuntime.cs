@@ -1,6 +1,5 @@
 ﻿using Colossal.Logging;
 using System;
-using System.Linq;
 using System.Reflection;
 
 namespace MertsToolBox.Core
@@ -49,25 +48,6 @@ namespace MertsToolBox.Core
 
             fi.SetValue(target, value);
             return true;
-        }
-        public static object TryInvokeParameterless(object target, string methodName)
-        {
-            if (target == null)
-                return null;
-
-            Type t = target.GetType();
-            while (t != null)
-            {
-                MethodInfo mi = t.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                    .FirstOrDefault(m => m.Name == methodName && m.GetParameters().Length == 0);
-
-                if (mi != null)
-                    return mi.Invoke(target, null);
-
-                t = t.BaseType;
-            }
-
-            return null;
         }
     }
 }

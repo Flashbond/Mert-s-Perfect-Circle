@@ -47,6 +47,11 @@ namespace MertsToolBox.Systems
         protected override bool RequiresSnapEnforcement => false;
         protected override bool OverridesObjectToolSnapMask => true;
         protected override bool WritesSubNetSnapMetadata => false;
+        /// <summary>
+        /// Allows helix shape can fold on itself.
+        /// </summary>
+        protected override bool AllowOverlapPlacement => true;
+
         protected override Snap GetObjectToolSnapMask()
         {
             return Snap.ExistingGeometry | Snap.NetArea;
@@ -206,7 +211,7 @@ namespace MertsToolBox.Systems
         /// <summary>
         /// Retrieves the current session clearance, applying default settings if uninitialized.
         /// </summary>
-        public float GetCurrentClearance() { if (m_CurrentSessionClearance < 0) m_CurrentSessionClearance = Mod.settings != null ? Mod.settings.DefaultClearance : 8f; return m_CurrentSessionClearance; }
+        public float GetCurrentClearance() { if (m_CurrentSessionClearance < 0) m_CurrentSessionClearance = Mod.settings != null ? Mod.settings.DefaultClearance : 9f; return m_CurrentSessionClearance; }
 
         /// <summary>
         /// Sets turn direction.
@@ -232,7 +237,7 @@ namespace MertsToolBox.Systems
         }
         private float GetMinimumAllowedClearance()
         {
-            return IsCurrentPierLikePrefab() ? 3.5f : 8.0f;
+            return IsCurrentPierLikePrefab() ? 3.5f : 9.0f;
         }
         private float GetMaximumAllowedClearance()
         {
@@ -251,9 +256,7 @@ namespace MertsToolBox.Systems
         /// </summary>
         protected override void OnToolDeactivated()
         {
-            MertToolState.HelixCleanupRequested = false;
             MertToolState.ActiveHelixUsesPierLikePrefab = false;
-
             if (m_ObjectToolSystem != null)
                 m_ObjectToolSystem.selectedSnap = MertToolState.BuildGlobalSnapMask();
         }
