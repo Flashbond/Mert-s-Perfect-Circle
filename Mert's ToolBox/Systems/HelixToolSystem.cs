@@ -47,10 +47,7 @@ namespace MertsToolBox.Systems
         protected override bool RequiresSnapEnforcement => false;
         protected override bool OverridesObjectToolSnapMask => true;
         protected override bool WritesSubNetSnapMetadata => false;
-        /// <summary>
-        /// Allows helix shape can fold on itself.
-        /// </summary>
-        protected override bool AllowOverlapPlacement => true;
+
 
         protected override Snap GetObjectToolSnapMask()
         {
@@ -256,7 +253,9 @@ namespace MertsToolBox.Systems
         /// </summary>
         protected override void OnToolDeactivated()
         {
+            MertToolState.HelixCleanupRequested = false;
             MertToolState.ActiveHelixUsesPierLikePrefab = false;
+
             if (m_ObjectToolSystem != null)
                 m_ObjectToolSystem.selectedSnap = MertToolState.BuildGlobalSnapMask();
         }
@@ -446,13 +445,12 @@ namespace MertsToolBox.Systems
             MertToolState.ActiveHelixUsesPierLikePrefab = isPier;
 
             float entryTailLength = isPier ? 1.5f : 0.8f;
-            float exitTailLength = isPier ? 0.5f : 0.8f;
-
-            subNets = BuildHelixSubNets(roadPrefab, buildRadius, segments, baseElevation, m_CurrentSessionClearance, turns, entryTailLength, exitTailLength);
-
+            float exitTailLength = isPier ? 0.5f : 1.0f;
+                     
             widthCells = depthCells = (int)math.ceil(m_CurrentSessionDiameter / 8f);
             costElevation = m_CurrentSessionClearance * turns;
 
+            subNets = BuildHelixSubNets(roadPrefab, buildRadius, segments, baseElevation, m_CurrentSessionClearance, turns, entryTailLength, exitTailLength);
             return true;
         }
 
@@ -563,7 +561,7 @@ namespace MertsToolBox.Systems
                 m_NodeIndex = new int2(segments + 1, segments + 2),
                 m_ParentMesh = new int2(-1, -1)
             };
-
+   
             return result;
         }
         #endregion

@@ -28,12 +28,9 @@ namespace MertsToolBox.Management
 
         public static bool IsCurrentStamp(PrefabBase prefab)
         {
-            if (prefab == null || string.IsNullOrEmpty(prefab.name))
-                return false;
+            if (prefab == null || string.IsNullOrEmpty(prefab.name)) return false;
 
-            return prefab.name.StartsWith("MertsToolBox_RoadStamp_", StringComparison.Ordinal) ||
-                   prefab.name.StartsWith("MertsToolBox_WarmupStamp_", StringComparison.Ordinal) ||
-                   prefab.name.StartsWith("MertsToolBox_SharedPrebakedStamp", StringComparison.Ordinal);
+            return string.Equals(prefab.name, "MertsToolBox_RuntimeStamp", StringComparison.Ordinal);
         }
 
         public static bool IsSupportedNetPrefab(
@@ -90,5 +87,6 @@ namespace MertsToolBox.Management
             return World.DefaultGameObjectInjectionWorld?
                 .GetExistingSystemManaged<PrefabSystem>();
         }
+
     }
 }

@@ -39,6 +39,7 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <Compile Remove="Base\ZoneBrowserProvider.cs" />
+	  <Compile Remove="Systems\HelixFakeGroundSystem.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.Entities;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -289,19 +288,27 @@ namespace MertsToolBox
         /// </summary>
         protected bool IsStandardRoadPrefab(PrefabBase prefabToTest)
         {
-            if (prefabToTest is not NetPrefab netPrefab) return false;
+            if (prefabToTest is not NetPrefab netPrefab)
+                return false;
 
             Entity prefabEntity = m_PrefabSystem.GetEntity(prefabToTest);
-            if (prefabEntity == Entity.Null || !EntityManager.Exists(prefabEntity)) return false;
+            if (prefabEntity == Entity.Null || !EntityManager.Exists(prefabEntity))
+                return false;
 
             if (!s_RoadProfileCache.TryGetValue(prefabEntity, out MertRoadProfile profile))
             {
-                profile = new MertRoadProfile { IsReliable = false, Width = 0f };
+                profile = new MertRoadProfile
+                {
+                    IsReliable = false,
+                    Width = 0f,
+                    Kind = MertNetKind.Unknown
+                };
 
                 bool hasInvalidDNA = false;
                 string matchedDNAInfo = "";
 
                 string internalName = netPrefab.name?.ToLowerInvariant() ?? "";
+
                 if (internalName.Contains("quay") ||
                     internalName.Contains("retaining") ||
                     internalName.Contains("dam") ||
@@ -311,31 +318,30 @@ namespace MertsToolBox
                     matchedDNAInfo += $"[Name={internalName}] ";
                 }
 
-                if (netPrefab is NetGeometryPrefab geometryPrefab && geometryPrefab.m_Sections != null)
+                if (netPrefab is NetGeometryPrefab geometryPrefab &&
+                    geometryPrefab.m_Sections != null)
                 {
                     foreach (var sectionInfo in geometryPrefab.m_Sections)
                     {
-                        if (sectionInfo.m_Section != null && sectionInfo.m_Section.m_Pieces != null && sectionInfo.m_Section.m_Pieces.Length > 0)
+                        if (sectionInfo.m_Section?.m_Pieces == null)
+                            continue;
+
+                        foreach (var pieceInfo in sectionInfo.m_Section.m_Pieces)
                         {
-                            profile.Width += sectionInfo.m_Section.m_Pieces[0].m_Piece.m_Width;
+                            if (pieceInfo.m_Piece == null)
+                                continue;
 
-                            foreach (var pieceInfo in sectionInfo.m_Section.m_Pieces)
+                            string pieceName = pieceInfo.m_Piece.name?.ToLowerInvariant() ?? "";
+
+                            if (pieceName.Contains("quay") ||
+                                pieceName.Contains("retaining") ||
+                                pieceName.Contains("dam") ||
+                                pieceName.Contains("bridge") ||
+                                pieceName.Contains("suspension") ||
+                                pieceName.Contains("extradosed") ||
+                                pieceName.Contains("truss"))
                             {
-                                if (pieceInfo.m_Piece != null)
-                                {
-                                    string pieceName = pieceInfo.m_Piece.name?.ToLowerInvariant() ?? "";
-
-                                    if (pieceName.Contains("quay") ||
-                                        pieceName.Contains("retaining") ||
-                                        pieceName.Contains("dam") ||
-                                        pieceName.Contains("bridge") ||
-                                        pieceName.Contains("suspension") ||
-                                        pieceName.Contains("extradosed") ||
-                                        pieceName.Contains("truss"))
-                                    {
-                                        hasInvalidDNA = true;
-                                    }
-                                }
+                                hasInvalidDNA = true;
                             }
                         }
                     }
@@ -351,8 +357,6 @@ namespace MertsToolBox
                 bool isPier =
                     internalName.Contains("pier");
 
-                profile.Kind = MertNetKind.Unknown;
-
                 if (isPier)
                 {
                     profile.Kind = MertNetKind.Pier;
@@ -367,7 +371,7 @@ namespace MertsToolBox
                 }
 
                 bool isPlaceableByUser = netPrefab.Has<PlaceableNet>();
-                bool hasRoadData = isRoad && EntityManager.HasComponent<Game.Prefabs.RoadData>(prefabEntity);
+                bool hasRoadData = isRoad && EntityManager.HasComponent<RoadData>(prefabEntity);
 
                 string rejectionReason = "";
 
@@ -378,14 +382,6 @@ namespace MertsToolBox
                 else if (!isRoad && !isTrack && !isPier)
                 {
                     rejectionReason = "Invalid Net Type";
-                }
-                else if (
-                    profile.Kind == MertNetKind.Road &&
-                    !isTransitRoad &&
-                    !isPier &&
-                    profile.Width < 7.9f)
-                {
-                    rejectionReason = $"Too Narrow Road (Width: {profile.Width} < 8)";
                 }
                 else if (hasInvalidDNA && !isPier)
                 {
@@ -461,13 +457,8 @@ namespace MertsToolBox
 
             Entity category = Entity.Null;
 
-            MertToolState.CaptureLaunchContext(
-                road,
-                category);
-
-            MertToolState.CaptureResolvedRoadContext(
-                road,
-                category);
+            MertToolState.CaptureLaunchContext(road,category);
+            MertToolState.CaptureResolvedRoadContext(road,category);
         }
 
         /// <summary>
@@ -529,21 +520,14 @@ namespace MertsToolBox
         /// </summary>
         protected void ResetRuntimeStamp()
         {
-            if (m_RuntimeStamp == null) return;
+            if (m_RuntimeStamp == null)
+                return;
 
             if (m_RuntimeStamp.TryGet<ObjectSubNets>(out ObjectSubNets subNets))
             {
                 subNets.m_SubNets = Array.Empty<ObjectSubNetInfo>();
             }
 
-            if (RuntimeStampEntity != Entity.Null && EntityManager.Exists(RuntimeStampEntity))
-            {
-                if (EntityManager.TryGetComponent(RuntimeStampEntity, out ObjectGeometryData geom))
-                {
-                    geom.m_Size = float3.zero;
-                    EntityManager.SetComponentData(RuntimeStampEntity, geom);
-                }
-            }
             m_RuntimeStamp.asset?.MarkDirty();
         }
         #endregion
@@ -631,18 +615,34 @@ namespace MertsToolBox
         /// Retrieves the exact physical width of the road from the smart cache.
         /// Falls back to estimation if the road is somehow not cached.
         /// </summary>
-        protected float GetCachedRoadWidth(NetPrefab roadPrefab)
+        protected float GetOrCreateRoadWidth(NetPrefab roadPrefab)
         {
-            if (roadPrefab == null) return 8f;
+            if (roadPrefab == null)
+                return 8f;
 
             Entity prefabEntity = m_PrefabSystem.GetEntity(roadPrefab);
 
-            if (prefabEntity != Entity.Null && s_RoadProfileCache.TryGetValue(prefabEntity, out MertRoadProfile profile))
+            if (prefabEntity != Entity.Null &&
+                s_RoadProfileCache.TryGetValue(prefabEntity, out MertRoadProfile profile) &&
+                profile.Width > 0.1f)
             {
-                if (profile.Width > 0.1f) return profile.Width;
+                return profile.Width;
             }
 
-            return EstimateRoadWidth(roadPrefab);
+            float width = EstimateRoadWidth(roadPrefab);
+
+            if (prefabEntity != Entity.Null)
+            {
+                if (!s_RoadProfileCache.TryGetValue(prefabEntity, out profile))
+                {
+                    profile = new MertRoadProfile();
+                }
+
+                profile.Width = width;
+                s_RoadProfileCache[prefabEntity] = profile;
+            }
+
+            return width;
         }
         #endregion
     }

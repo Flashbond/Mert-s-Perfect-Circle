@@ -257,40 +257,42 @@ namespace MertsToolBox.Systems
             if (m_CurrentSessionDimension < minAllowed)
                 m_CurrentSessionDimension = minAllowed;
 
-            subNets = null; widthCells = depthCells = 0; costElevation = 0f;
+            ShapeMetrics metrics = GetCurrentShapeMetrics();
 
-            float inputD = m_CurrentSessionDimension - m_CurrentRoadWidth;
-            if (inputD <= 0f)
+            subNets = null;
+            widthCells = depthCells = 0;
+            costElevation = 0f;
+
+            if (metrics.CenterDiameterMeters <= 0f)
                 return false;
 
             int sides = ShapeDefinitions[m_CurrentSidesIndex].Sides;
-
-            float buildR;
             costElevation = GetCurrentNetToolElevation();
+
+            float finalBuildRadius;
 
             if (sides == 0)
             {
-                buildR = inputD * 0.5f;
+                finalBuildRadius = metrics.BuildRadius;
 
-                int segments = CalculateAutoSegments(buildR);
-                subNets = BuildShapeSubNets(roadPrefab, buildR, segments, costElevation);
+                int segments = CalculateAutoSegments(finalBuildRadius);
+                subNets = BuildShapeSubNets(roadPrefab, finalBuildRadius, segments, costElevation);
             }
             else
             {
                 if (sides % 2 == 0)
                 {
-                    float apothem = inputD * 0.5f;
-                    buildR = apothem / math.cos(math.PI / sides);
+                    finalBuildRadius = metrics.BuildRadius / math.cos(math.PI / sides);
                 }
                 else
                 {
-                    buildR = inputD * 0.5f;
+                    finalBuildRadius = metrics.BuildRadius;
                 }
 
-                subNets = BuildPolygonSubNets(roadPrefab, buildR, sides, costElevation);
+                subNets = BuildPolygonSubNets(roadPrefab, finalBuildRadius, sides, costElevation);
             }
 
-            widthCells = depthCells = (int)math.ceil(m_CurrentSessionDimension / 8f);
+            widthCells = depthCells = (int)math.ceil(metrics.OuterDimensionMeters / 8f);
 
             return true;
         }

@@ -110,7 +110,7 @@ const register: ModRegistrar = (moduleRegistry) => {
             useLayoutEffect(() => {
                 if (!isActive) return;
 
-                const hideForeignRows = () => {
+           
                     const root = document.querySelector(".merts-toolbox-root") as HTMLElement | null;
                     if (!root) return;
 
@@ -124,27 +124,7 @@ const register: ModRegistrar = (moduleRegistry) => {
                             el.classList.contains("grid-panel-container");
 
                         if (isToolPanel) return;
-
-                        if (el.className.includes("item_")) {
-                            el.style.display = "none";
-                        }
                     });
-                };
-
-                hideForeignRows();
-
-                const raf = requestAnimationFrame(() => {
-                    hideForeignRows();
-                });
-
-                const t = setTimeout(() => {
-                    hideForeignRows();
-                }, 17);
-
-                return () => {
-                    cancelAnimationFrame(raf);
-                    clearTimeout(t);
-                };
             }, [isActive, activeTool.id]);
 
             useEffect(() => {

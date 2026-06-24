@@ -752,7 +752,7 @@ namespace MertsToolBox
             {
                 ShapeMetrics m = m_Shape.GetCurrentShapeMetrics();
                 return $"Outer: {FormatSmart(m.OuterDimensionUnits)}U ({FormatSmart(m.OuterDimensionMeters)}m) - " +
-                       $"Inner: {FormatSmart(m.InnerDimensionUnits)}U ({FormatSmart(m.InnerDimensionMeters)}m)";
+                       $"Inner: {FormatSmart(m.InnerDimensionUnits)}U ({FormatSmart(m.InnerDiameterMeters)}m)";
             }
             if (m_Helix != null && m_Helix.ToolEnabled)
             {

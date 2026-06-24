@@ -1,55 +1,68 @@
 ﻿using Colossal.Entities;
+using Colossal.Mathematics;
 using Game.Prefabs;
 using Game.Tools;
 using MertsToolBox.Core;
 using MertsToolBox.Management;
 using System;
-using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace MertsToolBox
 {
     public abstract partial class MertBaseToolSystem
     {
+
         #region Fields & Constants
-        private int m_WaitCounter = 0;
-
-        private static AssetStampPrefab s_WarmupRuntimeStamp;
-        private static Entity s_WarmupRuntimeStampEntity;
-        private static bool s_WarmupStampRegistered;
-
-        private static bool s_ObjectToolFoundationWarmFailed;
-        private static int s_ObjectToolWarmAttempts;
-        private const int MaxObjectToolWarmAttempts = 3;
+        private static bool s_RoadProfileDiscoveryCompleted;
+        private static NetPrefab s_CachedSmallRoad;
         #endregion
 
 
         #region Initialization & Prebaking
-        /// <summary>
-        /// Initializes the session state variables required to track and manage the per-road stamp baking process.
-        /// </summary>
-        private void EnsurePerRoadBakeSessionStarted()
+        private void TryDiscoverRoadProfiles()
         {
-            if (s_StampBakeSessionStarted)
+            if (s_RoadProfileDiscoveryCompleted)
                 return;
 
-            s_StampBakeSessionStarted = true;
-            s_StampBakeSessionSealed = false;
-            s_BakeStablePasses = 0;
-            s_LastDiscoveredRoadCount = -1;
+            EntityQuery query = EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<PrefabData>(),
+                ComponentType.ReadOnly<NetData>());
+
+            using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
+
+            int discovered = 0;
+
+            foreach (Entity entity in entities)
+            {
+                if (!m_PrefabSystem.TryGetPrefab<PrefabBase>(
+                        entity,
+                        out var prefab))
+                {
+                    continue;
+                }
+
+                if (prefab is not NetPrefab netPrefab)
+                    continue;
+
+                IsStandardRoadPrefab(netPrefab);
+                discovered++;
+            }
+
+            if (discovered > 0)
+                s_RoadProfileDiscoveryCompleted = true;
         }
 
         /// <summary>
-        /// Instantiates and configures a new standalone asset stamp prefab specifically tailored for the given road.
+        /// Creates a detached warmup stamp prefab that is never stored in the per-road registry.
+        /// This isolates ObjectTool foundation warmup from real gameplay stamps.
         /// </summary>
-        private AssetStampPrefab CreatePerRoadStampPrefab(NetPrefab roadPrefab)
+        private AssetStampPrefab CreateSharedRuntimeStampPrefab()
         {
-            if (roadPrefab == null)
-                return null;
+            var stamp = ScriptableObject.CreateInstance<AssetStampPrefab>();
 
-            var stamp = UnityEngine.ScriptableObject.CreateInstance<AssetStampPrefab>();
-            stamp.name = $"MertsToolBox_RoadStamp_{roadPrefab.name}_{DateTime.Now.Ticks}";
+            stamp.name = "MertsToolBox_RuntimeStamp";
 
             if (!stamp.Has<ObjectSubNets>())
                 stamp.AddComponent<ObjectSubNets>();
@@ -61,97 +74,8 @@ namespace MertsToolBox
                 stamp.AddComponent<PlaceableNet>();
 
             m_PrefabSystem.AddPrefab(stamp);
+
             return stamp;
-        }
-
-        /// <summary>
-        /// Creates a detached warmup stamp prefab that is never stored in the per-road registry.
-        /// This isolates ObjectTool foundation warmup from real gameplay stamps.
-        /// </summary>
-        private AssetStampPrefab CreateWarmupStampPrefab()
-        {
-            var stamp = UnityEngine.ScriptableObject.CreateInstance<AssetStampPrefab>();
-            stamp.name = $"MertsToolBox_WarmupStamp_{DateTime.Now.Ticks}";
-
-            if (!stamp.Has<ObjectSubNets>())
-                stamp.AddComponent<ObjectSubNets>();
-
-            if (!stamp.Has<PlaceableObject>())
-                stamp.AddComponent<PlaceableObject>();
-
-            if (!stamp.Has<Game.Prefabs.PlaceableNet>())
-                stamp.AddComponent<Game.Prefabs.PlaceableNet>();
-
-            m_PrefabSystem.AddPrefab(stamp);
-            return stamp;
-        }
-
-        /// <summary>
-        /// Builds or refreshes the isolated warmup stamp using a deterministic road prefab.
-        /// This must never touch the per-road registry.
-        /// </summary>
-        private bool TryPrepareWarmupStamp(NetPrefab roadPrefab)
-        {
-            if (roadPrefab == null || m_PrefabSystem == null)
-                return false;
-
-            try
-            {
-                if (!s_WarmupStampRegistered || s_WarmupRuntimeStamp == null)
-                {
-                    s_WarmupRuntimeStamp = CreateWarmupStampPrefab();
-                    if (s_WarmupRuntimeStamp == null)
-                        return false;
-
-                    s_WarmupStampRegistered = true;
-                }
-
-                ObjectSubNets subNets;
-
-                if (!s_WarmupRuntimeStamp.TryGet<ObjectSubNets>(out subNets) || subNets == null)
-                    subNets = s_WarmupRuntimeStamp.AddComponent<ObjectSubNets>();
-
-                subNets.m_SubNets = new[]
-                {
-            new ObjectSubNetInfo
-            {
-                m_NetPrefab = roadPrefab,
-                m_BezierCurve = new Colossal.Mathematics.Bezier4x3(
-                    new float3(0f, 0f, 0f),
-                    new float3(2f, 0f, 0f),
-                    new float3(4f, 0f, 0f),
-                    new float3(6f, 0f, 0f)
-                ),
-                m_NodeIndex = new int2(0, 1),
-                m_ParentMesh = new int2(-1, -1)
-            }
-        };
-
-                s_WarmupRuntimeStamp.m_Width = 4;
-                s_WarmupRuntimeStamp.m_Depth = 4;
-                s_WarmupRuntimeStamp.asset?.MarkDirty();
-
-                s_WarmupRuntimeStampEntity = m_PrefabSystem.GetEntity(s_WarmupRuntimeStamp);
-
-                if (s_WarmupRuntimeStampEntity == Entity.Null ||
-                    !EntityManager.Exists(s_WarmupRuntimeStampEntity))
-                    return false;
-
-                m_PrefabSystem.UpdatePrefab(
-                    s_WarmupRuntimeStamp,
-                    s_WarmupRuntimeStampEntity);
-
-                s_WarmupRuntimeStampEntity =
-                    m_PrefabSystem.GetEntity(s_WarmupRuntimeStamp);
-
-                return s_WarmupRuntimeStampEntity != Entity.Null &&
-                       EntityManager.Exists(s_WarmupRuntimeStampEntity);
-            }
-            catch (Exception e)
-            {
-                ModRuntime.Warn($"[WARMUP] Prepare skipped: {e.GetType().Name}: {e.Message}");
-                return false;
-            }
         }
 
         /// <summary>
@@ -162,52 +86,75 @@ namespace MertsToolBox
         /// </summary>
         private void TryLatePrebakeWithRealRoad()
         {
-            if (s_ObjectToolFoundationWarmed || s_ObjectToolFoundationWarmFailed)
+            if (s_ObjectToolFoundationWarmed)
                 return;
 
-            if (m_WaitCounter++ < 60)
+            if (!s_RoadProfileDiscoveryCompleted)
+                TryDiscoverRoadProfiles();
+
+            NetPrefab smallRoad = GetCachedSmallRoad();
+
+            if (smallRoad == null)
                 return;
 
-            m_WaitCounter = 0;
-
-            EnsurePerRoadBakeSessionStarted();
-
-            if (!s_StampBakeSessionSealed)
-                RunPerRoadStampBakePass();
-
-            NetPrefab warmupRoad = TryFindWarmupRoadPrefab();
-            if (warmupRoad == null)
+            if (!EnsureSharedRuntimeStamp())
                 return;
 
-            if (!TryPrepareWarmupStamp(warmupRoad))
-                return;
-
-            m_RuntimeStamp = s_WarmupRuntimeStamp;
-            RuntimeStampEntity = s_WarmupRuntimeStampEntity;
-
-            if (RuntimeStampEntity == Entity.Null ||
-                !EntityManager.Exists(RuntimeStampEntity))
-                return;
-
+            PrepareSharedStampForRoad(smallRoad);
             TryWarmObjectToolPreviewFoundationOnce();
+        }
+
+        private void PrepareSharedStampForRoad(NetPrefab roadPrefab)
+        {
+            if (!s_SharedRuntimeStamp.TryGet<ObjectSubNets>(
+                out var subNets) ||
+                subNets == null)
+            {
+                subNets =
+                    s_SharedRuntimeStamp.AddComponent<ObjectSubNets>();
+            }
+
+            subNets.m_SubNets = new[]
+            {
+                new ObjectSubNetInfo
+                {
+                    m_NetPrefab = roadPrefab,
+                    m_BezierCurve = new Bezier4x3(
+                        new float3(0f,0f,0f),
+                        new float3(2f,0f,0f),
+                        new float3(4f,0f,0f),
+                        new float3(6f,0f,0f)
+                    ),
+                    m_NodeIndex = new int2(0,1),
+                    m_ParentMesh = new int2(-1,-1)
+                }
+            };
+
+            s_SharedRuntimeStamp.asset?.MarkDirty();
+
+            Entity entity =
+                m_PrefabSystem.GetEntity(
+                    s_SharedRuntimeStamp);
+
+            if (entity != Entity.Null &&
+                EntityManager.Exists(entity))
+            {
+                m_PrefabSystem.UpdatePrefab(
+                    s_SharedRuntimeStamp,
+                    entity);
+            }
         }
 
         private void TryWarmObjectToolPreviewFoundationOnce()
         {
-            if (s_ObjectToolFoundationWarmed || s_ObjectToolFoundationWarmFailed)
+            if (s_ObjectToolFoundationWarmed)
                 return;
-
-            if (++s_ObjectToolWarmAttempts > MaxObjectToolWarmAttempts)
-            {
-                s_ObjectToolFoundationWarmFailed = true;
-                return;
-            }
 
             if (m_ObjectToolSystem == null ||
-                m_ToolSystem == null ||
-                m_RuntimeStamp == null ||
-                RuntimeStampEntity == Entity.Null ||
-                !EntityManager.Exists(RuntimeStampEntity))
+                m_ToolSystem == null)
+                return;
+
+            if (s_SharedRuntimeStamp == null)
                 return;
 
             try
@@ -221,22 +168,12 @@ namespace MertsToolBox
                     m_ToolSystem.activeTool = m_ObjectToolSystem;
                 }
 
-                bool setOk = m_ObjectToolSystem.TrySetPrefab(m_RuntimeStamp);
-                if (!setOk)
+                if (!m_ObjectToolSystem.TrySetPrefab(s_SharedRuntimeStamp))
                     return;
 
                 m_ObjectToolSystem.InitializeRaycast();
 
                 s_ObjectToolFoundationWarmed = true;
-            }
-            catch (KeyNotFoundException e)
-            {
-                ModRuntime.Warn($"[COLDSTART] Warm foundation delayed: {e.Message}");
-            }
-            catch (Exception e)
-            {
-                s_ObjectToolFoundationWarmFailed = true;
-                ModRuntime.Warn($"[COLDSTART] Warm foundation skipped: {e.GetType().Name}: {e.Message}");
             }
             finally
             {
@@ -245,238 +182,33 @@ namespace MertsToolBox
             }
         }
 
-        private NetPrefab TryFindWarmupRoadPrefab()
+        private NetPrefab GetCachedSmallRoad()
         {
-            EntityQuery query = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<NetData>(),
-                ComponentType.ReadOnly<PrefabData>()
-            );
-
-            if (query.IsEmptyIgnoreFilter)
-                return null;
-
-            using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
-
-            foreach (Entity entity in entities)
-            {
-                if (!m_PrefabSystem.TryGetPrefab<PrefabBase>(entity, out var prefab))
-                    continue;
-
-                if (prefab is NetPrefab net &&
-                    string.Equals(net.name, "Small Road", StringComparison.OrdinalIgnoreCase))
-                    return net;
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Executes a processing pass to discover eligible roads and iteratively bake their stamp prefabs until the session stabilizes.
-        /// </summary>
-        private void RunPerRoadStampBakePass()
-        {
-            if (s_StampBakeSessionSealed)
-                return;
+            if (s_CachedSmallRoad != null)
+                return s_CachedSmallRoad;
 
             EntityQuery query = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<NetData>(),
-                ComponentType.ReadOnly<PrefabData>()
-            );
-
-            if (query.IsEmptyIgnoreFilter)
-                return;
+                ComponentType.ReadOnly<PrefabData>());
 
             using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
-
-            int discoveredCount = 0;
-            int pendingCount = 0;
 
             foreach (var entity in entities)
             {
                 if (!m_PrefabSystem.TryGetPrefab<PrefabBase>(entity, out var prefab))
+                {
                     continue;
-
-                if (prefab is not NetPrefab roadPrefab)
-                    continue;
-
-                if (!IsEligibleRoadForPrebake(roadPrefab))
-                    continue;
-
-                discoveredCount++;
-
-                if (!s_BakeStateByRoadEntity.TryGetValue(entity, out var state))
-                {
-                    s_BakeStateByRoadEntity[entity] = StampBakeState.Pending;
-                    state = StampBakeState.Pending;
                 }
 
-                if (state == StampBakeState.Ready || state == StampBakeState.Failed)
-                    continue;
-
-                pendingCount++;
-
-                bool baked = TryBakeStampForRoad(roadPrefab);
-                if (!baked && s_BakeStateByRoadEntity[entity] != StampBakeState.Failed)
+                if (prefab is NetPrefab net && string.Equals(net.name, "Small Road", StringComparison.OrdinalIgnoreCase))
                 {
-                    s_BakeStateByRoadEntity[entity] = StampBakeState.Pending;
+                    s_CachedSmallRoad = net;
+                    return net;
                 }
             }
 
-            int unresolved = 0;
-            foreach (var kv in s_BakeStateByRoadEntity)
-            {
-                if (kv.Value == StampBakeState.Pending)
-                    unresolved++;
-            }
-
-            if (discoveredCount == s_LastDiscoveredRoadCount && unresolved == 0)
-                s_BakeStablePasses++;
-            else
-                s_BakeStablePasses = 0;
-
-            s_LastDiscoveredRoadCount = discoveredCount;
-
-            if (s_BakeStablePasses >= BakeStablePassesRequired)
-            {
-                s_StampBakeSessionSealed = true;
-            }
+            return null;
         }
-        /// <summary>
-        /// Determines whether the specified road prefab meets the criteria required for generating a dedicated prebaked stamp.
-        /// </summary>
-        private bool IsEligibleRoadForPrebake(NetPrefab roadPrefab)
-        {
-            if (roadPrefab == null)
-                return false;
-
-            if (!IsStandardRoadPrefab(roadPrefab))
-                return false;
-
-            string name = roadPrefab.name ?? string.Empty;
-
-            if (name.StartsWith("MertsToolBox_SharedPrebakedStamp", StringComparison.OrdinalIgnoreCase))
-                return false;
-
-            return true;
-        }
-
-        /// <summary>
-        /// Attempts to safely retrieve the cached prebaked stamp prefab and its corresponding runtime entity for the specified road.
-        /// </summary>
-        private bool TryGetPrebakedStampForRoad(NetPrefab roadPrefab, out AssetStampPrefab stamp, out Entity stampEntity)
-        {
-            stamp = null;
-            stampEntity = Entity.Null;
-
-            if (roadPrefab == null)
-                return false;
-
-            Entity roadEntity = m_PrefabSystem.GetEntity(roadPrefab);
-            if (roadEntity == Entity.Null)
-                return false;
-
-            if (!s_StampByRoadEntity.ContainsKey(roadEntity) || s_StampByRoadEntity[roadEntity] == null)
-            {
-                TryBakeStampForRoad(roadPrefab);
-            }
-
-            if (!s_StampByRoadEntity.TryGetValue(roadEntity, out stamp) || stamp == null)
-                return false;
-
-            if (!s_StampEntityByRoadEntity.TryGetValue(roadEntity, out stampEntity))
-                stampEntity = Entity.Null;
-
-            if (stampEntity == Entity.Null || !EntityManager.Exists(stampEntity))
-            {
-                stampEntity = RefreshRuntimeStampEntity(stamp);
-                if (stampEntity == Entity.Null || !EntityManager.Exists(stampEntity))
-                    return false;
-
-                s_StampEntityByRoadEntity[roadEntity] = stampEntity;
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Generates, registers, and caches a functional stamp prefab with baseline geometry and metadata for the specified road.
-        /// </summary>
-        private bool TryBakeStampForRoad(NetPrefab roadPrefab)
-        {
-            if (roadPrefab == null)
-                return false;
-
-            Entity roadEntity = m_PrefabSystem.GetEntity(roadPrefab);
-            if (roadEntity == Entity.Null)
-                return false;
-
-            try
-            {
-                if (!s_StampByRoadEntity.TryGetValue(roadEntity, out AssetStampPrefab stamp) || stamp == null)
-                {
-                    stamp = CreatePerRoadStampPrefab(roadPrefab);
-                    if (stamp == null)
-                    {
-                        s_BakeStateByRoadEntity[roadEntity] = StampBakeState.Failed;
-                        return false;
-                    }
-
-                    s_StampByRoadEntity[roadEntity] = stamp;
-                }
-
-                if (!stamp.TryGet<ObjectSubNets>(out var subNets) || subNets == null)
-                    subNets = stamp.AddComponent<ObjectSubNets>();
-
-                subNets.m_SubNets = new[]
-                {
-                new ObjectSubNetInfo
-                {
-                    m_NetPrefab = roadPrefab,
-                    m_BezierCurve = new Colossal.Mathematics.Bezier4x3(
-                            new float3(0f, 0f, 0f),
-                            new float3(2f, 0f, 0f),
-                            new float3(4f, 0f, 0f),
-                            new float3(6f, 0f, 0f)
-                        ),
-                        m_NodeIndex = new int2(0, 1),
-                        m_ParentMesh = new int2(-1, -1)
-                    }
-                };
-
-                stamp.m_Width = 4;
-                stamp.m_Depth = 4;
-                stamp.asset?.MarkDirty();
-
-                Entity stampEntity = m_PrefabSystem.GetEntity(stamp);
-                if (stampEntity == Entity.Null || !EntityManager.Exists(stampEntity))
-                {
-                    s_BakeStateByRoadEntity[roadEntity] = StampBakeState.Pending;
-                    return false;
-                }
-
-                m_PrefabSystem.UpdatePrefab(stamp, stampEntity);
-                stampEntity = m_PrefabSystem.GetEntity(stamp);
-
-                if (stampEntity == Entity.Null || !EntityManager.Exists(stampEntity))
-                {
-                    s_BakeStateByRoadEntity[roadEntity] = StampBakeState.Pending;
-                    return false;
-                }
-
-
-                s_StampByRoadEntity[roadEntity] = stamp;
-                s_StampEntityByRoadEntity[roadEntity] = stampEntity;
-                s_BakeStateByRoadEntity[roadEntity] = StampBakeState.Ready;
-
-                return true;
-            }
-            catch
-            {
-                s_BakeStateByRoadEntity[roadEntity] = StampBakeState.Failed;
-                return false;
-            }
-        }
-
         /// <summary>
         /// Prepares the context and queues a preview rebuild when the tool is enabled.
         /// </summary>
@@ -484,23 +216,16 @@ namespace MertsToolBox
         {
             EnsureContextRecipeReady();
 
-            NetPrefab currentRoad = TryGetCurrentSelectedRoadPrefab();
-            if (currentRoad != null &&
-                TryGetPrebakedStampForRoad(currentRoad, out var prebakedStamp, out var prebakedEntity))
+            if (!TryGetSharedRuntimeStamp(out var stamp))
             {
-                m_RuntimeStamp = prebakedStamp;
-                RuntimeStampEntity = prebakedEntity;
-            }
-            else
-            {
-                ModRuntime.Warn($"[ROAD-STAMP] MISSING | road={currentRoad?.name ?? "NULL"}");
+                ModRuntime.Warn("[ROAD-STAMP] Shared runtime stamp missing");
                 return;
             }
 
-            if (m_RuntimeStamp == null)
-                return;
+            m_RuntimeStamp = stamp;
 
             m_PendingCreateShape = false;
+
             QueuePreviewRebuild();
         }
         #endregion
@@ -548,7 +273,8 @@ namespace MertsToolBox
         {
             bool changed = false;
 
-            if (targetEntity == Entity.Null || !EntityManager.Exists(targetEntity)) return false;
+            if (targetEntity == Entity.Null || !EntityManager.Exists(targetEntity))
+                return false;
 
             if (!EntityManager.TryGetComponent(targetEntity, out PlaceableObjectData placeable))
             {
@@ -561,11 +287,6 @@ namespace MertsToolBox
 
             placeable.m_Flags |= m_DesiredPlacementFlags;
 
-            if (AllowOverlapPlacement)
-                placeable.m_Flags |= Game.Objects.PlacementFlags.CanOverlap;
-            else
-                placeable.m_Flags &= ~Game.Objects.PlacementFlags.CanOverlap;
-
             bool shouldTouchSnapMetadata = WritesSubNetSnapMetadata;
 
             bool isAnySnapActive = shouldTouchSnapMetadata && IsAnyGlobalSnapEnabled();
@@ -575,7 +296,7 @@ namespace MertsToolBox
                 if (isAnySnapActive)
                     placeable.m_Flags |= Game.Objects.PlacementFlags.SubNetSnap;
                 else
-                    placeable.m_Flags &= ~Game.Objects.PlacementFlags.SubNetSnap;
+                    placeable.m_Flags &= ~Game.Objects.PlacementFlags.SubNetSnap;           
             }
 
             if (oldFlags != placeable.m_Flags || changed)
@@ -584,35 +305,33 @@ namespace MertsToolBox
                 changed = true;
             }
 
-            if (EntityManager.HasBuffer<SubNet>(targetEntity))
+            if (EntityManager.HasBuffer<Game.Prefabs.SubNet>(targetEntity))
             {
                 bool2 dynamicSubNetSnapping = new(isAnySnapActive, isAnySnapActive);
 
-                DynamicBuffer<SubNet> subNets = EntityManager.GetBuffer<SubNet>(targetEntity);
-                for (int i = 0; i < subNets.Length; i++)
-                {
-                    SubNet sn = subNets[i];
-                }
+                DynamicBuffer<Game.Prefabs.SubNet> subNets = EntityManager.GetBuffer<Game.Prefabs.SubNet>(targetEntity);
+
                 CompositionFlags suppressionFlags = BuildCommonSuppressionFlags();
 
                 for (int i = 0; i < subNets.Length; i++)
                 {
-                    SubNet subNet = subNets[i];
+                    Game.Prefabs.SubNet subNet = subNets[i];
+
                     if (shouldTouchSnapMetadata)
                     {
-                        if (subNet.m_Snapping.x != dynamicSubNetSnapping.x || subNet.m_Snapping.y != dynamicSubNetSnapping.y)
+                        if (subNet.m_Snapping.x != dynamicSubNetSnapping.x ||
+                            subNet.m_Snapping.y != dynamicSubNetSnapping.y)
                         {
                             subNet.m_Snapping = dynamicSubNetSnapping;
                             changed = true;
                         }
                     }
-               
+
                     if (suppressionFlags != default)
                     {
-                        subNet.m_Upgrades.m_General |= suppressionFlags.m_General;
                         subNet.m_Upgrades.m_Left |= suppressionFlags.m_Left;
                         subNet.m_Upgrades.m_Right |= suppressionFlags.m_Right;
-                    
+
                         changed = true;
                     }
 
@@ -659,12 +378,11 @@ namespace MertsToolBox
             if (!TryMutateTargetStamp())
                 return false;
 
-            Entity refreshedEntity = RefreshRuntimeStampEntity(m_RuntimeStamp);
+            Entity entity = m_PrefabSystem.GetEntity(m_RuntimeStamp);
 
-            if (refreshedEntity != Entity.Null && EntityManager.Exists(refreshedEntity))
+            if (entity != Entity.Null && EntityManager.Exists(entity))
             {
-                RuntimeStampEntity = refreshedEntity;
-                m_PrefabSystem.UpdatePrefab(m_RuntimeStamp, refreshedEntity);
+                m_PrefabSystem.UpdatePrefab(m_RuntimeStamp, entity);
             }
 
             MarkRuntimeStampChanged();
@@ -700,19 +418,16 @@ namespace MertsToolBox
         /// <summary>
         /// Retrieves and updates the current entity representation of the given stamp prefab.
         /// </summary>
-        private Entity RefreshRuntimeStampEntity(AssetStampPrefab stamp)
+        private bool TryResolveRuntimeStampEntity(AssetStampPrefab stamp, out Entity entity)
         {
-            if (stamp == null)
-                return Entity.Null;
+            entity = Entity.Null;
 
-            Entity refreshed = m_PrefabSystem.GetEntity(stamp);
-            if (refreshed != Entity.Null && EntityManager.Exists(refreshed))
-            {
-                RuntimeStampEntity = refreshed;
-                return refreshed;
-            }
+            if (stamp == null) return false;
 
-            return Entity.Null;
+            entity = m_PrefabSystem.GetEntity(stamp);
+
+            return entity != Entity.Null &&
+                   EntityManager.Exists(entity);
         }
         #endregion
 
@@ -737,8 +452,7 @@ namespace MertsToolBox
 
             ClearPendingHandoff();
             HandoffToObjectTool(stampToHandOff);
-
-
+           
             return true;
         }
 
@@ -755,10 +469,8 @@ namespace MertsToolBox
                 return false;
             }
 
-            refreshedEntity = RefreshRuntimeStampEntity(m_PendingHandoffStamp);
-            if (refreshedEntity == Entity.Null)
-                return false;
-
+            if (!TryResolveRuntimeStampEntity(m_PendingHandoffStamp, out refreshedEntity)) return false;
+  
             if (!IsRuntimeStampEntityReady(refreshedEntity))
                 return false;
 

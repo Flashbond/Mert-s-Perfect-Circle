@@ -32,12 +32,12 @@ namespace MertsToolBox.Core
             var lm = GameManager.instance.localizationManager;
             lm.AddSource("en-US", new LocaleEN(settings));
 
-            m_Harmony = new Harmony("com.mert.toolbox");
+            m_Harmony = new Harmony("com.mertstoolbox");
             m_Harmony.PatchAll();
 
             updateSystem.UpdateAt<ShapeToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<HelixToolSystem>(SystemUpdatePhase.ToolUpdate);
-            // updateSystem.UpdateAt<HelixNetDebugSystem>(SystemUpdatePhase.ToolUpdate);
+            updateSystem.UpdateAt<InjectDummyParentToPillarsSystem>(SystemUpdatePhase.Modification3);
             updateSystem.UpdateAt<SoftBlockToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<GridToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<MertToolBoxUISystem>(SystemUpdatePhase.UIUpdate);
@@ -50,7 +50,7 @@ namespace MertsToolBox.Core
         /// </summary>
         public void OnDispose()
         {
-            m_Harmony?.UnpatchAll("com.mert.toolbox");
+            m_Harmony?.UnpatchAll("com.mertstoolbox");
             settings?.UnregisterInOptionsUI();
             settings = null;
         }

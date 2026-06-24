@@ -34,25 +34,29 @@
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/merts-perfect-circle-feedback-suggestions-bug-reports.1911521/" />
 
 	<!--Version of the mod-->
-	<ModVersion Value="1.0.1" />
+	<ModVersion Value="1.0.2" />
 
 	<!--Recommended version of the base game to use the mod-->
-	<GameVersion Value="1.5.*" />
+	<GameVersion Value="1.6.*" />
 
 	<!--Dependency for the mod, can be set multiple times-->
-	<!--<Dependency Id="" />-->
+	<Dependency Id="74604" />
 
 	<!--Required DLC-->
 	<!--<RequiredDLC Value="" />-->
 
 	<!--Change log for new version-->
 	<ChangeLog>
-		* Procedural Helix now requires Anarchy mode in order to preserve vanilla experience.
+		* Anarchy availability added to custom tool panels.
+		* Double pillars added to Procedural Helix tool for better visual experience.
+		* Inconsistant metrics fixed for Perfect Shape tool.
+		* Prebake+Warmup system removed for additional stability.
+		* Other code optimizations.
+		* Tested with game patch version 1.6.0f1.
 	</ChangeLog>
 
 	<!--External links-->
 	<ExternalLink Type="github" Url="https://github.com/Flashbond/Mert-s-ToolBox/" />
-	<!-- İstersen YouTube ekle -->
 
 	<!--Supported values Public, Private, Unlisted-->
 	<AccessLevel Value="Public" />

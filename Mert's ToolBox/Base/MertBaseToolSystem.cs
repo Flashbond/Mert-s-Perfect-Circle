@@ -6,7 +6,6 @@ using MertsToolBox.Core;
 using MertsToolBox.Management;
 using MertsToolBox.Utilities.Preset;
 using MertsToolBox.Utilities.Undo;
-using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Unity.Entities;
@@ -24,13 +23,10 @@ namespace MertsToolBox
         protected ToolRaycastSystem m_ToolRaycastSystem;
 
         protected static AssetStampPrefab s_SharedRuntimeStamp;
-        protected static Entity s_SharedRuntimeStampEntity;
         protected static bool s_SharedStampRegistered;
-        protected static bool s_PrebakeCompleted;
         protected static bool s_ObjectToolFoundationWarmed;
 
         protected AssetStampPrefab m_RuntimeStamp;
-        public Entity RuntimeStampEntity { get; protected set; }
 
         protected FieldInfo m_SelectedPrefabField;
         protected FieldInfo m_PrefabField;
@@ -53,10 +49,10 @@ namespace MertsToolBox
         protected bool m_ContextRecipeReady;
 
         protected Game.Objects.PlacementFlags m_DesiredPlacementFlags =
+                    Game.Objects.PlacementFlags.OnGround |
                     Game.Objects.PlacementFlags.RoadEdge |
                     Game.Objects.PlacementFlags.RoadSide;
 
-        protected virtual bool AllowOverlapPlacement => false;
         protected virtual bool RequiresSnapEnforcement => true;
         protected virtual bool OverridesObjectToolSnapMask => true;
         protected virtual bool WritesSubNetSnapMetadata => RequiresSnapEnforcement;
@@ -66,25 +62,7 @@ namespace MertsToolBox
         private bool m_IsCreatingShape;
         private bool m_PendingObjectToolHandoff;
 
-        protected static readonly Dictionary<Entity, AssetStampPrefab> s_StampByRoadEntity = new();
-        protected static readonly Dictionary<Entity, Entity> s_StampEntityByRoadEntity = new();
-        protected static readonly Dictionary<Entity, StampBakeState> s_BakeStateByRoadEntity = new();
-
-        protected static bool s_StampBakeSessionStarted;
-        protected static bool s_StampBakeSessionSealed;
-        protected static int s_BakeStablePasses;
-        protected static int s_LastDiscoveredRoadCount;
-
-        protected const int BakeStablePassesRequired = 3;
-
-        protected enum StampBakeState
-        {
-            NotSeen = 0,
-            Pending = 1,
-            Ready = 2,
-            Failed = 3
-        }
-
+   
         #endregion
 
         #region Abstract Core
@@ -138,7 +116,7 @@ namespace MertsToolBox
         /// </summary>
         protected override void OnUpdate()
         {
-            if (!s_StampBakeSessionSealed || !s_ObjectToolFoundationWarmed)
+            if (!s_ObjectToolFoundationWarmed)
                 TryLatePrebakeWithRealRoad();
 
             if (!ToolEnabled)
@@ -188,29 +166,9 @@ namespace MertsToolBox
                 Mod.settings.OnSuppressCrosswalkChanged -= OnSuppressCrosswalkSettingsChanged;
             }
 
-            foreach (var kv in s_StampByRoadEntity)
-            {
-                if (kv.Value != null)
-                    UnityEngine.Object.Destroy(kv.Value);
-            }
+            s_CachedSmallRoad = null;
 
-            s_StampByRoadEntity.Clear();
-            s_StampEntityByRoadEntity.Clear();
-            s_BakeStateByRoadEntity.Clear();
-
-            if (s_WarmupRuntimeStamp != null)
-            {
-                UnityEngine.Object.Destroy(s_WarmupRuntimeStamp);
-                s_WarmupRuntimeStamp = null;
-            }
-
-            s_WarmupRuntimeStampEntity = Entity.Null;
-            s_WarmupStampRegistered = false;
-
-            s_StampBakeSessionStarted = false;
-            s_StampBakeSessionSealed = false;
-            s_BakeStablePasses = 0;
-            s_LastDiscoveredRoadCount = 0;
+            s_RoadProfileDiscoveryCompleted = false;
             s_ObjectToolFoundationWarmed = false;
 
             m_ToolSystem = null;
@@ -240,14 +198,10 @@ namespace MertsToolBox
         protected virtual bool TryMutateTargetStamp()
         {
             NetPrefab roadPrefab = TryGetCurrentSelectedRoadPrefab();
-            if (roadPrefab == null)
-                return false;
+            if (roadPrefab == null) return false;
 
-            if (!TryGetPrebakedStampForRoad(roadPrefab, out var prebakedStamp, out var prebakedEntity))
-                return false;
-
+            if (!TryGetSharedRuntimeStamp(out var prebakedStamp)) return false;
             m_RuntimeStamp = prebakedStamp;
-            RuntimeStampEntity = prebakedEntity;
 
             if (!TryGenerateGeometry(
                 roadPrefab,
@@ -272,6 +226,27 @@ namespace MertsToolBox
 
             return true;
         }
+        private bool TryGetSharedRuntimeStamp(out AssetStampPrefab stamp)
+        {
+            stamp = null;
+
+            if (!EnsureSharedRuntimeStamp())
+                return false;
+
+            stamp = s_SharedRuntimeStamp;
+            return true;
+        }
+
+        private bool EnsureSharedRuntimeStamp()
+        {
+            if (s_SharedRuntimeStamp != null)
+                return true;
+
+            s_SharedRuntimeStamp =
+                CreateSharedRuntimeStampPrefab();
+
+            return s_SharedRuntimeStamp != null;
+        }
         protected CompositionFlags BuildCommonSuppressionFlags()
         {
             CompositionFlags flags = default;
@@ -292,11 +267,48 @@ namespace MertsToolBox
         /// </summary>
         protected float EstimateRoadWidth(NetPrefab roadPrefab)
         {
-            if (roadPrefab == null) return 8f;
+            if (roadPrefab == null)
+                return 8f;
+
             Entity entity = m_PrefabSystem.GetEntity(roadPrefab);
-            if (EntityManager.TryGetComponent(entity, out NetGeometryData geometryData) && geometryData.m_DefaultWidth > 0.1f)
+
+            if (EntityManager.TryGetComponent(entity, out NetGeometryData geometryData) &&
+                geometryData.m_DefaultWidth > 0.1f)
+            {
                 return geometryData.m_DefaultWidth;
-            return 8f;
+            }
+
+            return EstimateRoadWidthFromComposite(roadPrefab);
+        }
+        protected float EstimateRoadWidthFromComposite(NetPrefab roadPrefab)
+        {
+            float estimatedWidth = 0f;
+
+            if (roadPrefab is not NetGeometryPrefab geometryPrefab ||
+                geometryPrefab.m_Sections == null)
+            {
+                return 8f;
+            }
+
+            foreach (var sectionInfo in geometryPrefab.m_Sections)
+            {
+                if (sectionInfo.m_Section?.m_Pieces == null)
+                    continue;
+
+                foreach (var pieceInfo in sectionInfo.m_Section.m_Pieces)
+                {
+                    if (pieceInfo.m_Piece == null)
+                        continue;
+
+                    estimatedWidth = math.max(
+                        estimatedWidth,
+                        pieceInfo.m_Piece.m_Width);
+                }
+            }
+
+            return estimatedWidth > 0.1f
+                ? estimatedWidth
+                : 8f;
         }
 
         /// <summary>

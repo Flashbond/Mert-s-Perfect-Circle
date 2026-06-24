@@ -27,7 +27,7 @@ namespace MertsToolBox
                 CaptureLaunchRestoreContext();
 
                 NetPrefab currentRoad = TryGetCurrentSelectedRoadPrefab();
-                m_CurrentRoadWidth = currentRoad != null ? GetCachedRoadWidth(currentRoad) : 8f;
+                m_CurrentRoadWidth = currentRoad != null ? GetOrCreateRoadWidth(currentRoad) : 8f;
 
                 ClearUndoHistory();
 
