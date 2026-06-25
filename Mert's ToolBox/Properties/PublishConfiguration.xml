@@ -34,7 +34,7 @@
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/merts-perfect-circle-feedback-suggestions-bug-reports.1911521/" />
 
 	<!--Version of the mod-->
-	<ModVersion Value="1.0.2" />
+	<ModVersion Value="1.0.3" />
 
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.6.*" />
@@ -47,12 +47,7 @@
 
 	<!--Change log for new version-->
 	<ChangeLog>
-		* Anarchy availability added to custom tool panels.
-		* Double pillars added to Procedural Helix tool for better visual experience.
-		* Inconsistant metrics fixed for Perfect Shape tool.
-		* Prebake+Warmup system removed for additional stability.
-		* Other code optimizations.
-		* Tested with game patch version 1.6.0f1.
+		* "The given key 'Any' was not present in the dictionary" error fix.
 	</ChangeLog>
 
 	<!--External links-->

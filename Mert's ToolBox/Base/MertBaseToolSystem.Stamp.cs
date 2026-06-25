@@ -110,8 +110,7 @@ namespace MertsToolBox
                 out var subNets) ||
                 subNets == null)
             {
-                subNets =
-                    s_SharedRuntimeStamp.AddComponent<ObjectSubNets>();
+                subNets = s_SharedRuntimeStamp.AddComponent<ObjectSubNets>();
             }
 
             subNets.m_SubNets = new[]
@@ -132,26 +131,18 @@ namespace MertsToolBox
 
             s_SharedRuntimeStamp.asset?.MarkDirty();
 
-            Entity entity =
-                m_PrefabSystem.GetEntity(
-                    s_SharedRuntimeStamp);
+            Entity entity = m_PrefabSystem.GetEntity(s_SharedRuntimeStamp);
 
-            if (entity != Entity.Null &&
-                EntityManager.Exists(entity))
-            {
-                m_PrefabSystem.UpdatePrefab(
-                    s_SharedRuntimeStamp,
-                    entity);
-            }
+            if (entity != Entity.Null &&EntityManager.Exists(entity))
+                m_PrefabSystem.UpdatePrefab(s_SharedRuntimeStamp, entity);
         }
 
         private void TryWarmObjectToolPreviewFoundationOnce()
-        {
+        {          
             if (s_ObjectToolFoundationWarmed)
                 return;
 
-            if (m_ObjectToolSystem == null ||
-                m_ToolSystem == null)
+            if (m_ObjectToolSystem == null || m_ToolSystem == null)
                 return;
 
             if (s_SharedRuntimeStamp == null)
@@ -172,8 +163,11 @@ namespace MertsToolBox
                     return;
 
                 m_ObjectToolSystem.InitializeRaycast();
-
                 s_ObjectToolFoundationWarmed = true;
+            }
+            catch (Exception e)
+            {
+                ModRuntime.Warn($"'{e.Message}' exception has been thrown by an external mod. You may ignore the error.");
             }
             finally
             {
@@ -196,9 +190,7 @@ namespace MertsToolBox
             foreach (var entity in entities)
             {
                 if (!m_PrefabSystem.TryGetPrefab<PrefabBase>(entity, out var prefab))
-                {
                     continue;
-                }
 
                 if (prefab is NetPrefab net && string.Equals(net.name, "Small Road", StringComparison.OrdinalIgnoreCase))
                 {

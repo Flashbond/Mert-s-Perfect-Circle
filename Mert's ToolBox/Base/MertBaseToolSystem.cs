@@ -49,7 +49,6 @@ namespace MertsToolBox
         protected bool m_ContextRecipeReady;
 
         protected Game.Objects.PlacementFlags m_DesiredPlacementFlags =
-                    Game.Objects.PlacementFlags.OnGround |
                     Game.Objects.PlacementFlags.RoadEdge |
                     Game.Objects.PlacementFlags.RoadSide;
 
